@@ -231,12 +231,14 @@ class ccb(Star):
 
             cnick = []
             ccount = []
+            cvol = []
             for idx, item in enumerate(sorted_count):
                 user_id = item.get(id)
                 stranger = await client.api.call_action('get_stranger_info', user_id=user_id)
                 nickname = stranger.get('nick', user_id)
                 cnick.insert(idx, nickname)
                 ccount.insert(idx, item.get(count, 0))
+                cvol.insert(idx, item.get(vol, 0))
 
             nnick = []
             ncount = []
@@ -246,18 +248,19 @@ class ccb(Star):
                 nickname = stranger.get('nick', user_id)
                 nnick.insert(idx, nickname)
                 ncount.insert(idx, item.get(num, 0))
+
             msg = (
                 "---被ccb排行榜---\n"
-                f"1.{cnick[0]}    {ccount[0]}次\n"
-                f"2.{cnick[1]}    {ccount[1]}次\n"
-                f"3.{cnick[2]}    {ccount[2]}次\n"
-                f"4.{cnick[3]}    {ccount[3]}次\n"
-                f"5.{cnick[4]}    {ccount[4]}次\n"
+                f"1.{cnick[0]}  {ccount[0]}次  被灌注了{cvol[0]}ml\n"
+                f"2.{cnick[1]}  {ccount[1]}次  被灌注了{cvol[1]}ml\n"
+                f"3.{cnick[2]}  {ccount[2]}次  被灌注了{cvol[2]}ml\n"
+                f"4.{cnick[3]}  {ccount[3]}次  被灌注了{cvol[3]}ml\n"
+                f"5.{cnick[4]}  {ccount[4]}次  被灌注了{cvol[4]}ml\n"
                 "---ccb排行榜---\n"
-                f"1.{nnick[0]}    {ncount[0]}次\n"
-                f"2.{nnick[1]}    {ncount[1]}次\n"
-                f"3.{nnick[2]}    {ncount[2]}次\n"
-                f"4.{nnick[3]}    {ncount[3]}次\n"
-                f"5.{nnick[4]}    {ncount[4]}次\n"
+                f"1.{nnick[0]}  {ncount[0]}次\n"
+                f"2.{nnick[1]}  {ncount[1]}次\n"
+                f"3.{nnick[2]}  {ncount[2]}次\n"
+                f"4.{nnick[3]}  {ncount[3]}次\n"
+                f"5.{nnick[4]}  {ncount[4]}次\n"
             )
             yield event.plain_result(msg)
