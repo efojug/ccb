@@ -7,9 +7,6 @@ import json
 import random
 import os
 
-# 数据文件路径
-DATA_FILE = os.path.join(os.getcwd(), "data", "plugins", "astrbot_plugin_ccb", "record.json")
-
 # JSON 字段常量
 id    = "id"
 count = "count"
@@ -17,11 +14,21 @@ vol   = "vol"
 first = "first"
 num   = "num"
 
-def ensure_data_file():
+def get_data_file(group_id=None):
+    """
+    获取数据文件路径；
+    """
+    if group_id:
+        return os.path.join(os.getcwd(), "data", "plugins", "astrbot_plugin_ccb", f"record_{group_id}.json")
+    else:
+        return os.path.join(os.getcwd(), "data", "plugins", "astrbot_plugin_ccb", f"record.json")
+
+def ensure_data_file(group_id=None):
     """
     确保数据文件存在且为有效 JSON 数组；
     否则初始化为 []。
     """
+    DATA_FILE = get_data_file(group_id)
     dir_path = os.path.dirname(DATA_FILE)
     os.makedirs(dir_path, exist_ok=True)
     if not os.path.isfile(DATA_FILE):
@@ -32,17 +39,17 @@ def ensure_data_file():
             with open(DATA_FILE, 'r', encoding='utf-8') as f:
                 json.load(f)
         except (json.JSONDecodeError, ValueError):
-            logger.error(f"[{__name__}] 解析 record.json 失败，重置文件为 []。")
+            print(f"[{__name__}] 解析 record.json 失败，重置文件为 []。")
             with open(DATA_FILE, 'w', encoding='utf-8') as f:
                 json.dump([], f, ensure_ascii=False, indent=2)
 
-def load_data():
-    ensure_data_file()
-    with open(DATA_FILE, 'r', encoding='utf-8') as f:
+def load_data(group_id=None):
+    ensure_data_file(group_id)
+    with open(get_data_file(group_id), 'r', encoding='utf-8') as f:
         return json.load(f)
 
-def save_data(data):
-    with open(DATA_FILE, 'w', encoding='utf-8') as f:
+def save_data(data, group_id=None):
+    with open(get_data_file(group_id), 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 def get_avatar(user_id: str) -> str:
@@ -55,7 +62,7 @@ def is_first(data, target_user_id):
         if item.get(id) == target_user_id:
             # 如果找到了对应的记录，检查 first 字段是否为空 排除只c过别人没被c过的情况
             return item.get(first) == ""
-    return False
+    return True
 
 def update_num(data, sender_id):
     """
@@ -76,7 +83,7 @@ def update_num(data, sender_id):
     })
 
 
-@register("ccb", "efojug", "和群友ccb的插件", "2.0.3")
+@register("ccb", "efojug", "和群友ccb的插件", "2.0.5")
 class ccb(Star):
     def __init__(self, context: Context):
         super().__init__(context)
@@ -88,11 +95,7 @@ class ccb(Star):
         sender_id     = event.get_sender_id()
         self_id       = event.get_self_id()
         # 优先取 @ 别人的 QQ，否则默认为自己
-        target_user_id = next(
-            (str(seg.qq) for seg in messages
-             if isinstance(seg, Comp.At) and str(seg.qq) != self_id),
-            sender_id
-        )
+        target_user_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), sender_id)
 
         # 随机时长和注入量
         time = format(random.uniform(1, 60), '.2f')
@@ -100,7 +103,7 @@ class ccb(Star):
         pic  = get_avatar(target_user_id)
 
         # 读记录
-        data = load_data()
+        data = load_data(event.get_group_id())
         
         check_first = is_first(data, target_user_id)
 
@@ -112,12 +115,10 @@ class ccb(Star):
             client = event.bot
 
             # 获取目标昵称
-            stranger_info = await client.api.call_action(
-                'get_stranger_info', user_id=target_user_id
-            )
+            stranger_info = await client.api.call_action('get_stranger_info', user_id=target_user_id)
             nickname = stranger_info.get('nick', target_user_id)
 
-             # 构造消息链
+            # 构造消息链
             if check_first:
                 chain = [
                     Comp.Plain(f"你和{nickname}发生了{time}min长的ccb行为，向ta注入了{V:.2f}ml的生命因子"),
@@ -155,13 +156,13 @@ class ccb(Star):
             update_num(data, sender_id)
 
             # 写回文件
-            save_data(data)
+            save_data(data, event.get_group_id())
     
     @filter.command("first")
     async def first(self, event: AstrMessageEvent):
         """
         /first @目标
-        查询目标用户的 first 字段并 at 出该 QQ
+        看看ta的第一次被谁夺走了
         """
         messages = event.get_messages()
         self_id  = event.get_self_id()
@@ -185,7 +186,7 @@ class ccb(Star):
             )
             target_nickname = stranger_info.get('nick', target_id)
 
-            data = load_data()
+            data = load_data(event.get_group_id())
 
             for item in data:
                 if item.get(id) == target_id:
@@ -213,9 +214,7 @@ class ccb(Star):
     async def board(self, event: AstrMessageEvent):
         """
         /board
-        输出两个排行榜：
-        1. 被ccb次数前5
-        2. 执行ccb次数前5
+        输出ccb排行榜
         """
         # 仅支持 aiocqhttp 平台
         if event.get_platform_name() == "aiocqhttp":
@@ -223,7 +222,7 @@ class ccb(Star):
             assert isinstance(event, AiocqhttpMessageEvent)
             client = event.bot
 
-            data = load_data()
+            data = load_data(event.get_group_id())
             # 按 count 正序取前5
             sorted_count = sorted(data, key=lambda x: x.get(count, 0), reverse=True)[:5]
             # 按 num 正序取前5
