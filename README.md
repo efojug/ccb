@@ -1,6 +1,6 @@
 # ccb
 
-AstrBot 和群友ccb的插件
+可以让你和群友ccb的Astrbot插件
 
 # 指令
 /ccb @(ta) 来cc群友的b    
