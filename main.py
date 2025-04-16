@@ -5,6 +5,7 @@ import astrbot.api.message_components as Comp
 import json
 import random
 import os
+import asyncio
 
 # JSON 字段常量
 id    = "id"
@@ -82,7 +83,7 @@ def update_num(data, sender_id):
     })
 
 
-@register("ccb", "efojug", "和群友ccb的插件", "2.0.5")
+@register("ccb", "efojug", "和群友ccb的插件", "2.0.8")
 class ccb(Star):
     def __init__(self, context: Context):
         super().__init__(context)
@@ -119,19 +120,29 @@ class ccb(Star):
 
             # 构造消息链
             if is_first:
+                for item in data:
+                    if item.get(id) == target_user_id:
+                        # 如果找到了对应的记录，检查 first 字段是否为空
+                        item[count] = 1
+                        item[vol]   = round(V, 2)
+                        item[first] = sender_id
+                        break
+                else:
+                    # 没找到则在 data 新增 target 的记录
+                    data.append({
+                        id: target_user_id,
+                        count: 1,
+                        vol: round(V, 2),
+                        first: sender_id,
+                        num: 0
+                    })
+
                 chain = [
                     Comp.Plain(f"你和{nickname}发生了{time}min长的ccb行为，向ta注入了{V:.2f}ml的生命因子"),
                     Comp.Image.fromURL(pic),
                     Comp.Plain("这是ta的初体验。")
                 ]
-                # 在 data 里新增 target 的记录
-                data.append({
-                    id: target_user_id,
-                    count: 1,
-                    vol: round(V, 2),
-                    first: sender_id,
-                    num: 0
-                })
+
             else:
                 # 找到已有记录并更新 count/vol
                 for item in data:
@@ -215,50 +226,50 @@ class ccb(Star):
         /board
         输出ccb排行榜
         """
-        # 仅支持 aiocqhttp 平台
+
+                # 仅支持 aiocqhttp 平台
         if event.get_platform_name() == "aiocqhttp":
             from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
             assert isinstance(event, AiocqhttpMessageEvent)
             client = event.bot
 
             data = load_data(event.get_group_id())
-            # 按 count 正序取前5
-            sorted_count = sorted(data, key=lambda x: x.get(count, 0), reverse=True)[:5]
-            # 按 num 正序取前5
-            sorted_num   = sorted(data, key=lambda x: x.get(num, 0), reverse=True)[:5]
+            if not data:
+                # 没有任何记录时给个友好提示
+                return event.plain_result("当前还没有任何ccb记录")
 
-            cnick = []
-            ccount = []
-            cvol = []
-            for idx, item in enumerate(sorted_count):
-                user_id = item.get(id)
-                stranger = await client.api.call_action('get_stranger_info', user_id=user_id)
-                nickname = stranger.get('nick', user_id)
-                cnick.insert(idx, nickname)
-                ccount.insert(idx, item.get(count, 0))
-                cvol.insert(idx, item.get(vol, 0))
+            # 排序并取前 N（最多 5 条）
+            N = min(5, len(data))
+            top_by_count = sorted(data, key=lambda x: x.get(count, 0), reverse=True)[:N]
+            top_by_num   = sorted(data, key=lambda x: x.get(num,   0), reverse=True)[:N]
 
-            nnick = []
-            ncount = []
-            for idx, item in enumerate(sorted_num):
-                user_id = item.get(id)
-                stranger = await client.api.call_action('get_stranger_info', user_id=user_id)
-                nickname = stranger.get('nick', user_id)
-                nnick.insert(idx, nickname)
-                ncount.insert(idx, item.get(num, 0))
+            # 收集所有要查询昵称的 QQ 号（去重）
+            uids = {item[id] for item in top_by_count + top_by_num}
 
-            msg = (
-                "---被ccb排行榜---\n"
-                f"1.{cnick[0]}  {ccount[0]}次  被灌注了{cvol[0]}ml\n"
-                f"2.{cnick[1]}  {ccount[1]}次  被灌注了{cvol[1]}ml\n"
-                f"3.{cnick[2]}  {ccount[2]}次  被灌注了{cvol[2]}ml\n"
-                f"4.{cnick[3]}  {ccount[3]}次  被灌注了{cvol[3]}ml\n"
-                f"5.{cnick[4]}  {ccount[4]}次  被灌注了{cvol[4]}ml\n"
-                "---ccb排行榜---\n"
-                f"1.{nnick[0]}  {ncount[0]}次\n"
-                f"2.{nnick[1]}  {ncount[1]}次\n"
-                f"3.{nnick[2]}  {ncount[2]}次\n"
-                f"4.{nnick[3]}  {ncount[3]}次\n"
-                f"5.{nnick[4]}  {ncount[4]}次\n"
-            )
-            yield event.plain_result(msg)
+            # 并发获取昵称
+            async def fetch_nick(u):
+                info = await client.api.call_action('get_stranger_info', user_id=u)
+                return u, info.get('nick', u)
+
+            tasks = [fetch_nick(u) for u in uids]
+            results = await asyncio.gather(*tasks)
+            nick_map = {u: nick for u, nick in results}
+
+            # 构造排行榜文本
+            lines = ["--- 被ccb排行榜 ---"]
+            for idx, item in enumerate(top_by_count, start=1):
+                u = item[id]
+                lines.append(
+                    f"{idx}. {nick_map[u]}  {item.get(count)}次  被灌注了{item.get(vol)}ml"
+                )
+
+            lines.append("")  # 空行分隔
+            lines.append("---ccb排行榜---")
+            for idx, item in enumerate(top_by_num, start=1):
+                u = item[id]
+                lines.append(
+                    f"{idx}. {nick_map[u]}  {item.get(num)}次"
+                )
+
+            msg = "\n".join(lines)
+            return event.plain_result(msg)
