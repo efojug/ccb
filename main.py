@@ -61,7 +61,7 @@ def check_first(data, user_id):
     for item in data:
         if item.get(id) == user_id:
             # 如果找到了对应的记录，检查 first 字段是否为空 排除只c过别人没被c过的情况
-            return item.get(first) == 0
+            return not item.get(first)
     return True
 
 def update_num(data, sender_id):
@@ -78,7 +78,7 @@ def update_num(data, sender_id):
         id: sender_id,
         count: 0,    # 从未被别人 ccb 过
         vol: 0.0,    # 累计注入量为 0
-        first: 0,   # 还没被c过
+        first: "",   # 还没被c过
         num: 1       # c过别人一次
     })
 
