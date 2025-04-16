@@ -1,7 +1,6 @@
 # -- coding: utf-8 --
 from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
 from astrbot.api.star import Context, Star, register
-from astrbot.api import logger
 import astrbot.api.message_components as Comp
 import json
 import random
@@ -56,18 +55,18 @@ def get_avatar(user_id: str) -> str:
     """根据 QQ 号返回头像 URL"""
     return f"https://q4.qlogo.cn/headimg_dl?dst_uin={user_id}&spec=640"
 
-def is_first(data, target_user_id):
-    """检查 target_user_id 是否首次被记录"""
+def check_first(data, user_id):
+    """检查 user_id 是否首次被记录"""
     for item in data:
-        if item.get(id) == target_user_id:
+        if item.get(id) == user_id:
             # 如果找到了对应的记录，检查 first 字段是否为空 排除只c过别人没被c过的情况
-            return item.get(first) == ""
+            return item.get(first) == 0
     return True
 
 def update_num(data, sender_id):
     """
     在 data 中将 sender_id 对应的 num 加 1，
-    如果没有找到对应记录，则新建一条（count/vol/first 可置为初始值）。
+    如果没有找到对应记录，则新建一条
     """
     for item in data:
         if item.get(id) == sender_id:
@@ -78,7 +77,7 @@ def update_num(data, sender_id):
         id: sender_id,
         count: 0,    # 从未被别人 ccb 过
         vol: 0.0,    # 累计注入量为 0
-        first: "",   # 还没被c过
+        first: 0,   # 还没被c过
         num: 1       # c过别人一次
     })
 
@@ -105,7 +104,7 @@ class ccb(Star):
         # 读记录
         data = load_data(event.get_group_id())
         
-        check_first = is_first(data, target_user_id)
+        is_first = check_first(data, target_user_id)
 
         # 开始执行——无论首次或多次，只要成功执行，都要更新 sender 的 num
         # 仅支持 aiocqhttp 平台
@@ -119,7 +118,7 @@ class ccb(Star):
             nickname = stranger_info.get('nick', target_user_id)
 
             # 构造消息链
-            if check_first:
+            if is_first:
                 chain = [
                     Comp.Plain(f"你和{nickname}发生了{time}min长的ccb行为，向ta注入了{V:.2f}ml的生命因子"),
                     Comp.Image.fromURL(pic),
