@@ -86,7 +86,7 @@ def update_num(data, sender_id):
     })
 
 
-@register("ccb", "efojug", "和群友ccb的插件", "2.0.8")
+@register("ccb", "efojug", "和群友ccb的插件", "2.1.0")
 class ccb(Star):
     def __init__(self, context: Context):
         super().__init__(context)
@@ -97,22 +97,26 @@ class ccb(Star):
         if event.get_platform_name() == "aiocqhttp": 
             sender_id = event.get_sender_id()
             if sender_id == "3307566484" or sender_id == "3183970497":
-                self_id = event.get_self_id()
-                messages = event.get_messages()
-                target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), None)
-                if target_id:
-                    try:
-                        target_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=target_id)).get('nick', target_id)
-                        fake = True
-                        fake_user = sender_id
-                        fake_target = target_id
-                        chain = [
-                            Comp.Plain(f"成功。下一条命令将由{target_nickname}执行"),
-                            Comp.Plain("再次使用此命令以解除")
-                        ]
-                        yield event.chain_result(chain)
-                    except Exception as e:
-                        print(e)
+                if not fake:
+                    self_id = event.get_self_id()
+                    messages = event.get_messages()
+                    target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), None)
+                    if target_id:
+                        try:
+                            target_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=target_id)).get('nick', target_id)
+                            fake = True
+                            fake_user = sender_id
+                            fake_target = target_id
+                            chain = [
+                                Comp.Plain(f"成功 下一条命令将由{target_nickname}执行"),
+                                Comp.Plain("再次使用此命令以解除")
+                            ]
+                            yield event.chain_result(chain)
+                        except Exception as e:
+                            print(e)
+                else:
+                    fake = False
+                    yield event.plain_result("已解除")
             else:
                 yield event.plain_result("没有权限喵")
         
