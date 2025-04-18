@@ -8,11 +8,14 @@ import os
 import asyncio
 
 # JSON 字段常量
-id    = "id"
+id = "id"
 count = "count"
-vol   = "vol"
+vol = "vol"
 first = "first"
-num   = "num"
+num = "num"
+fake = False
+fake_user = ""
+fake_target = ""
 
 def get_data_file(group_id=None):
     """
@@ -88,40 +91,67 @@ class ccb(Star):
     def __init__(self, context: Context):
         super().__init__(context)
 
+    @filter.command("fake")
+    async def fake(self, event: AstrMessageEvent):
+        global fake, fake_user, fake_target
+        if event.get_platform_name() == "aiocqhttp": 
+            sender_id = event.get_sender_id()
+            if sender_id == "3307566484" or sender_id == "3183970497":
+                self_id = event.get_self_id()
+                messages = event.get_messages()
+                target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), None)
+                if target_id:
+                    try:
+                        target_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=target_id)).get('nick', target_id)
+                        fake = True
+                        fake_user = sender_id
+                        fake_target = target_id
+                        chain = [
+                            Comp.Plain(f"成功。下一条命令将由{target_nickname}执行"),
+                            Comp.Plain("再次使用此命令以解除")
+                        ]
+                        yield event.chain_result(chain)
+                    except Exception as e:
+                        print(e)
+            else:
+                yield event.plain_result("没有权限喵")
+        
+
     @filter.command("ccb")
     async def ccb(self, event: AstrMessageEvent):
-        # 解析基础信息
-        messages      = event.get_messages()
-        sender_id     = event.get_sender_id()
-        self_id       = event.get_self_id()
-        # 优先取 @ 别人的 QQ，否则默认为自己
-        target_user_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), sender_id)
-
-        # 随机时长和注入量
-        time = format(random.uniform(1, 60), '.2f')
-        V    = random.uniform(1, 100)
-        pic  = get_avatar(target_user_id)
-
-        # 读记录
-        data = load_data(event.get_group_id())
-        
-        is_first = check_first(data, target_user_id)
-
+        global fake, fake_user, fake_target
         # 开始执行——无论首次或多次，只要成功执行，都要更新 sender 的 num
         # 仅支持 aiocqhttp 平台
         if event.get_platform_name() == "aiocqhttp":
+            # 解析基础信息
+            messages = event.get_messages()
+            sender_id = event.get_sender_id()
+            self_id = event.get_self_id()
+            if (fake and fake_user == sender_id): sender_id = fake_target
+            # 优先取 @ 别人的 QQ，否则默认为自己
+            target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), sender_id)
+
+            # 随机时长和注入量
+            time = format(random.uniform(1, 60), '.2f')
+            V    = random.uniform(1, 100)
+            pic  = get_avatar(target_id)
+
+            # 读记录
+            data = load_data(event.get_group_id())
+            
+            is_first = check_first(data, target_id)
             from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
             assert isinstance(event, AiocqhttpMessageEvent)
             client = event.bot
 
             # 获取目标昵称
-            stranger_info = await client.api.call_action('get_stranger_info', user_id=target_user_id)
-            nickname = stranger_info.get('nick', target_user_id)
+            target_nickname = (await client.api.call_action('get_stranger_info', user_id=target_id)).get('nick', target_id)
+            sender_nickname = (await client.api.call_action('get_stranger_info', user_id=sender_id)).get('nick', sender_id)
 
             # 构造消息链
             if is_first:
                 for item in data:
-                    if item.get(id) == target_user_id:
+                    if item.get(id) == target_id:
                         # 如果找到了对应的记录，检查 first 字段是否为空
                         item[count] = 1
                         item[vol]   = round(V, 2)
@@ -130,7 +160,7 @@ class ccb(Star):
                 else:
                     # 没找到则在 data 新增 target 的记录
                     data.append({
-                        id: target_user_id,
+                        id: target_id,
                         count: 1,
                         vol: round(V, 2),
                         first: sender_id,
@@ -138,7 +168,7 @@ class ccb(Star):
                     })
 
                 chain = [
-                    Comp.Plain(f"你和{nickname}发生了{time}min长的ccb行为，向ta注入了{V:.2f}ml的生命因子"),
+                    Comp.Plain(f"{sender_nickname}, 你和{target_nickname}发生了{time}min长的ccb行为，向ta注入了{V:.2f}ml的生命因子"),
                     Comp.Image.fromURL(pic),
                     Comp.Plain("这是ta的初体验。")
                 ]
@@ -146,11 +176,11 @@ class ccb(Star):
             else:
                 # 找到已有记录并更新 count/vol
                 for item in data:
-                    if item.get(id) == target_user_id:
+                    if item.get(id) == target_id:
                         item[count] = item.get(count, 0) + 1
                         item[vol]   = round(item.get(vol, 0) + V, 2)
                         chain = [
-                            Comp.Plain(f"你和{nickname}发生了{time}min长的ccb行为，向ta注入了{V:.2f}ml的生命因子"),
+                            Comp.Plain(f"{sender_nickname}, 你和{target_nickname}发生了{time}min长的ccb行为，向ta注入了{V:.2f}ml的生命因子"),
                             Comp.Image.fromURL(pic),
                             Comp.Plain(
                                 f"这是ta的第{item[count]}次。"
@@ -167,6 +197,8 @@ class ccb(Star):
 
             # 写回文件
             save_data(data, event.get_group_id())
+
+            fake = False
     
     @filter.command("first")
     async def first(self, event: AstrMessageEvent):
@@ -227,7 +259,7 @@ class ccb(Star):
         输出ccb排行榜
         """
 
-                # 仅支持 aiocqhttp 平台
+        # 仅支持 aiocqhttp 平台
         if event.get_platform_name() == "aiocqhttp":
             from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
             assert isinstance(event, AiocqhttpMessageEvent)
