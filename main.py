@@ -129,7 +129,7 @@ class ccb(Star):
         if event.get_platform_name() == "aiocqhttp":
             # 解析基础信息
             messages = event.get_messages()
-            sender_id = fake_target if fake and fake_user == sender_id else event.get_sender_id()
+            sender_id = fake_target if fake and fake_user == event.get_sender_id() else event.get_sender_id()
             self_id = event.get_self_id()
             # 优先取 @ 别人的 QQ，否则默认为自己
             target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), sender_id)
@@ -191,16 +191,12 @@ class ccb(Star):
                             )
                         ]
                         break
-
             # 先发送消息
             yield event.chain_result(chain)
-
             # 再更新 sender 的执行次数
             update_num(data, sender_id)
-
             # 写回文件
             save_data(data, event.get_group_id())
-
             fake = False
     
     @filter.command("first")
@@ -436,17 +432,13 @@ class ccb(Star):
                                         )
                                     ]
                                     break
-
                         # 先发送消息
                         yield event.chain_result(chain)
-
                         # 再更新 sender 的执行次数
                         for player in mp_room:
                             update_num(data, player)
-
                         # 写回文件
                         save_data(data, event.get_group_id())
-
                     else:
                         yield event.plain_result("只有房主才能开始mp")
                 else:
@@ -463,5 +455,4 @@ class ccb(Star):
             
             else:
                 yield event.plain_result("未知的命令")
-
             fake = False
