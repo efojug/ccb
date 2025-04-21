@@ -90,7 +90,7 @@ def update_num(data, sender_id):
     })
 
 
-@register("ccb", "efojug", "和群友ccb的插件", "2.1.2")
+@register("ccb", "efojug", "和群友ccb的插件", "2.1.3")
 class ccb(Star):
     def __init__(self, context: Context):
         super().__init__(context)
@@ -100,25 +100,25 @@ class ccb(Star):
         global fake, fake_user, fake_target
         if event.get_platform_name() == "aiocqhttp": 
             sender_id = event.get_sender_id()
-            if sender_id in {"3307566484", "3183970497"}:
-                if not fake:
-                    self_id = event.get_self_id()
-                    messages = event.get_messages()
-                    target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), None)
-                    if target_id:
-                        try:
-                            target_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=target_id)).get('nick', target_id)
-                            fake = True
-                            fake_user = sender_id
-                            fake_target = target_id
-                            yield event.plain_result(f"成功 下一条命令将由{target_nickname}执行\n再次使用此命令以解除")
-                        except Exception as e:
-                            print(e)
-                else:
-                    fake = False
-                    yield event.plain_result("已解除")
+            # if sender_id in {"3307566484", "3183970497"}:
+            if not fake:
+                self_id = event.get_self_id()
+                messages = event.get_messages()
+                target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), None)
+                if target_id:
+                    try:
+                        target_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=target_id)).get('nick', target_id)
+                        fake = True
+                        fake_user = sender_id
+                        fake_target = target_id
+                        yield event.plain_result(f"成功 下一条命令将由{target_nickname}执行\n再次使用此命令以解除")
+                    except Exception as e:
+                        print(e)
             else:
-                yield event.plain_result("没有权限喵")
+                fake = False
+                yield event.plain_result("已解除")
+            # else:
+            #     yield event.plain_result("没有权限喵")
         
 
     @filter.command("ccb")
@@ -130,9 +130,11 @@ class ccb(Star):
             # 解析基础信息
             messages = event.get_messages()
             sender_id = fake_target if fake and fake_user == event.get_sender_id() else event.get_sender_id()
+            masturbation = False
             self_id = event.get_self_id()
             # 优先取 @ 别人的 QQ，否则默认为自己
             target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), sender_id)
+            if target_id == sender_id: masturbation = True
 
             # 随机时长和注入量
             time = format(random.uniform(1, 60), '.2f')
@@ -176,6 +178,13 @@ class ccb(Star):
                     Comp.Plain("这是ta的初体验。")
                 ]
 
+                if masturbation:
+                    chain = [
+                    Comp.Plain(f"你滋味了{time}min，向自己注入了{V:.2f}ml的生命因子"),
+                    Comp.Image.fromURL(pic),
+                    Comp.Plain("这是你的初体验。")
+                    ]
+
             else:
                 # 找到已有记录并更新 count/vol
                 for item in data:
@@ -190,6 +199,15 @@ class ccb(Star):
                                 f"ta被累积注入了{item[vol]}ml的生命因子"
                             )
                         ]
+                        if masturbation:
+                            chain = [
+                                Comp.Plain(f"你滋味了{time}min，向自己注入了{V:.2f}ml的生命因子"),
+                                Comp.Image.fromURL(pic),
+                                Comp.Plain(
+                                    f"这是你的第{item[count]}次。"
+                                    f"你已经被累积注入了{item[vol]}ml的生命因子"
+                                )
+                            ]
                         break
             # 先发送消息
             yield event.chain_result(chain)
