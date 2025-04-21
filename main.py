@@ -89,8 +89,125 @@ def update_num(data, sender_id):
         num: 1       # c过别人一次
     })
 
+async def cb(event: AstrMessageEvent, mp = False):
+    # 仅支持 aiocqhttp 平台
+    if event.get_platform_name() == "aiocqhttp":
+        # 解析基础信息
+        messages = event.get_messages()
+        sender_id = (fake_target if fake and fake_user == event.get_sender_id() else event.get_sender_id())
+        masturbation = False
+        self_id = event.get_self_id()
+        # 优先取 @ 别人的 QQ，否则默认为自己
+        target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), sender_id)
+        masturbation = (target_id == sender_id)
 
-@register("ccb", "efojug", "和群友ccb的插件", "2.1.3")
+        # 随机时长和注入量
+        time = format((len(mp_room) if mp else 1) * random.uniform(1, 60), '.2f')
+        V = (len(mp_room) if mp else 1) * random.uniform(1, 100)
+        pic = get_avatar(mp_target if mp else target_id)
+
+        # 读记录
+        data = load_data(event.get_group_id())
+            
+        is_first = check_first(data, (mp_target if mp else target_id))
+        from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
+        assert isinstance(event, AiocqhttpMessageEvent)
+        client = event.bot
+
+        # 获取目标昵称
+        target_nickname = (await client.api.call_action('get_stranger_info', user_id=target_id)).get('nick', target_id)
+        sender_nickname = (await client.api.call_action('get_stranger_info', user_id=sender_id)).get('nick', sender_id)
+        if mp:
+            owner_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_owner)).get('nick', mp_owner)
+
+        # 构造消息链
+        if is_first:
+            for item in data:
+                if item.get(id) == (mp_target if mp else target_id):
+                    # 如果找到了对应的记录，检查 first 字段是否为空
+                    item[count] = 1
+                    item[vol]   = round(V, 2)
+                    item[first] = sender_id
+                    break
+            else:
+                # 没找到则在 data 新增 target 的记录
+                data.append({
+                    id: (mp_target if mp else target_id),
+                    count: 1,
+                    vol: round(V, 2),
+                    first: sender_id,
+                    num: 0
+                })
+
+            chain = [
+                Comp.Plain(f"{sender_nickname}, 你和{target_nickname}发生了{time}min长的ccb行为，向ta注入了{V:.2f}ml的生命因子"),
+                Comp.Image.fromURL(pic),
+                Comp.Plain("这是ta的初体验。")
+            ]
+
+            if masturbation:
+                chain = [
+                Comp.Plain(f"你滋味了{time}min，向自己注入了{V:.2f}ml的生命因子"),
+                Comp.Image.fromURL(pic),
+                Comp.Plain("这是你的初体验。")
+                ]
+
+            if mp:
+                chain = [
+                    Comp.Plain(f"{owner_nickname}等{len(mp_room)}人和{target_nickname}发生了{time}min长的ccb行为，总共向ta注入了{V:.2f}ml的生命因子"),
+                    Comp.Image.fromURL(pic),
+                    Comp.Plain("这是ta的初体验。")
+                ]
+
+        else:
+            # 找到已有记录并更新 count/vol
+            for item in data:
+                if item.get(id) == (mp_target if mp else target_id):
+                    item[count] = item.get(count, 0) + (len(mp_room) if mp else 1)
+                    item[vol] = round(item.get(vol, 0) + V, 2)
+                    chain = [
+                        Comp.Plain(f"{sender_nickname}, 你和{target_nickname}发生了{time}min长的ccb行为，向ta注入了{V:.2f}ml的生命因子"),
+                        Comp.Image.fromURL(pic),
+                        Comp.Plain(
+                            f"这是ta的第{item[count]}次。"
+                            f"ta被累积注入了{item[vol]}ml的生命因子"
+                        )
+                    ]
+                    if masturbation:
+                        chain = [
+                            Comp.Plain(f"你滋味了{time}min，向自己注入了{V:.2f}ml的生命因子"),
+                            Comp.Image.fromURL(pic),
+                            Comp.Plain(
+                                f"这是你的第{item[count]}次。"
+                                f"你被累积注入了{item[vol]}ml的生命因子"
+                            )
+                        ]
+                    if mp:
+                        chain = [
+                            Comp.Plain(f"{owner_nickname}等{len(mp_room)}人和{target_nickname}发生了{time}min长的ccb行为，总共向ta注入了{V:.2f}ml的生命因子"),
+                            Comp.Image.fromURL(pic),
+                            Comp.Plain(
+                                f"这是ta的第{item[count]}次。"
+                                f"ta被累积注入了{item[vol]}ml的生命因子"
+                            )
+                        ]
+                    break
+
+        # 更新 sender 的执行次数
+        if mp:
+            for uid in mp_room:
+                update_num(data, uid)
+        else:
+            update_num(data, sender_id)
+
+        # 写回文件
+        save_data(data, event.get_group_id())
+
+        # 发送消息
+        return event.chain_result(chain)
+
+
+@register("ccb", "efojug", "和群友ccb的插件", "2.1.5")
 class ccb(Star):
     def __init__(self, context: Context):
         super().__init__(context)
@@ -124,98 +241,9 @@ class ccb(Star):
     @filter.command("ccb")
     async def ccb(self, event: AstrMessageEvent):
         global fake
-        # 开始执行——无论首次或多次，只要成功执行，都要更新 sender 的 num
-        # 仅支持 aiocqhttp 平台
-        if event.get_platform_name() == "aiocqhttp":
-            # 解析基础信息
-            messages = event.get_messages()
-            sender_id = fake_target if fake and fake_user == event.get_sender_id() else event.get_sender_id()
-            masturbation = False
-            self_id = event.get_self_id()
-            # 优先取 @ 别人的 QQ，否则默认为自己
-            target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), sender_id)
-            if target_id == sender_id: masturbation = True
+        yield await cb(event)
+        fake = False
 
-            # 随机时长和注入量
-            time = format(random.uniform(1, 60), '.2f')
-            V = random.uniform(1, 100)
-            pic = get_avatar(target_id)
-
-            # 读记录
-            data = load_data(event.get_group_id())
-            
-            is_first = check_first(data, target_id)
-            from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
-            assert isinstance(event, AiocqhttpMessageEvent)
-            client = event.bot
-
-            # 获取目标昵称
-            target_nickname = (await client.api.call_action('get_stranger_info', user_id=target_id)).get('nick', target_id)
-            sender_nickname = (await client.api.call_action('get_stranger_info', user_id=sender_id)).get('nick', sender_id)
-
-            # 构造消息链
-            if is_first:
-                for item in data:
-                    if item.get(id) == target_id:
-                        # 如果找到了对应的记录，检查 first 字段是否为空
-                        item[count] = 1
-                        item[vol]   = round(V, 2)
-                        item[first] = sender_id
-                        break
-                else:
-                    # 没找到则在 data 新增 target 的记录
-                    data.append({
-                        id: target_id,
-                        count: 1,
-                        vol: round(V, 2),
-                        first: sender_id,
-                        num: 0
-                    })
-
-                chain = [
-                    Comp.Plain(f"{sender_nickname}, 你和{target_nickname}发生了{time}min长的ccb行为，向ta注入了{V:.2f}ml的生命因子"),
-                    Comp.Image.fromURL(pic),
-                    Comp.Plain("这是ta的初体验。")
-                ]
-
-                if masturbation:
-                    chain = [
-                    Comp.Plain(f"你滋味了{time}min，向自己注入了{V:.2f}ml的生命因子"),
-                    Comp.Image.fromURL(pic),
-                    Comp.Plain("这是你的初体验。")
-                    ]
-
-            else:
-                # 找到已有记录并更新 count/vol
-                for item in data:
-                    if item.get(id) == target_id:
-                        item[count] = item.get(count, 0) + 1
-                        item[vol]   = round(item.get(vol, 0) + V, 2)
-                        chain = [
-                            Comp.Plain(f"{sender_nickname}, 你和{target_nickname}发生了{time}min长的ccb行为，向ta注入了{V:.2f}ml的生命因子"),
-                            Comp.Image.fromURL(pic),
-                            Comp.Plain(
-                                f"这是ta的第{item[count]}次。"
-                                f"ta被累积注入了{item[vol]}ml的生命因子"
-                            )
-                        ]
-                        if masturbation:
-                            chain = [
-                                Comp.Plain(f"你滋味了{time}min，向自己注入了{V:.2f}ml的生命因子"),
-                                Comp.Image.fromURL(pic),
-                                Comp.Plain(
-                                    f"这是你的第{item[count]}次。"
-                                    f"你已经被累积注入了{item[vol]}ml的生命因子"
-                                )
-                            ]
-                        break
-            # 先发送消息
-            yield event.chain_result(chain)
-            # 再更新 sender 的执行次数
-            update_num(data, sender_id)
-            # 写回文件
-            save_data(data, event.get_group_id())
-            fake = False
     
     @filter.command("first")
     async def first(self, event: AstrMessageEvent):
@@ -226,7 +254,7 @@ class ccb(Star):
         global fake
         messages = event.get_messages()
         self_id  = event.get_self_id()
-        sender_id = fake_target if fake and fake_user == sender_id else event.get_sender_id()
+        sender_id = fake_target if fake and fake_user == event.get_sender_id() else event.get_sender_id()
 
         # 仅支持 aiocqhttp 平台
         if event.get_platform_name() == "aiocqhttp":
@@ -252,18 +280,17 @@ class ccb(Star):
                         )
                         first_nickname = stranger_info.get('nick', first_id)
                         chain = [
-                            Comp.Plain(f"{target_nickname}的第一次被{first_nickname}夺走了"),
+                            Comp.Plain(f"{target_nickname}的第一次给了{first_nickname}"),
                             Comp.Image.fromURL(get_avatar(first_id))
                         ]
-                        yield event.chain_result(chain)
-                        return
+                        return event.chain_result(chain)
 
             chain = [
                 Comp.Plain(f"{target_nickname}还是纯洁的哦~"),
                 Comp.Image.fromURL(get_avatar(target_id))
             ]
             fake = False
-            yield event.chain_result(chain)
+            return event.chain_result(chain)
 
     @filter.command("board")
     async def board(self, event: AstrMessageEvent):
@@ -394,69 +421,8 @@ class ccb(Star):
             elif command == "start":
                 if mp_created:
                     if sender_id == mp_owner:
-                        time = format(len(mp_room) * random.uniform(1, 60), '.2f')
-                        V = len(mp_room) * random.uniform(1, 100)
-                        pic = get_avatar(mp_target)
-
-                        # 读记录
-                        data = load_data(event.get_group_id())
-                        
-                        is_first = check_first(data, mp_target)
-                        from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
-                        assert isinstance(event, AiocqhttpMessageEvent)
-                        client = event.bot
-
-                        # 获取目标昵称
-                        target_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_target)).get('nick', mp_target)
-                        owner_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_owner)).get('nick', mp_owner)
-
-                        # 构造消息链
-                        if is_first:
-                            for item in data:
-                                if item.get(id) == mp_target:
-                                    # 如果找到了对应的记录，检查 first 字段是否为空
-                                    item[count] = 1
-                                    item[vol]   = round(V, 2)
-                                    item[first] = sender_id
-                                    break
-                            else:
-                                # 没找到则在 data 新增 target 的记录
-                                data.append({
-                                    id: mp_target,
-                                    count: 1,
-                                    vol: round(V, 2),
-                                    first: sender_id,
-                                    num: 0
-                                })
-
-                            chain = [
-                                Comp.Plain(f"{owner_nickname}等{len(mp_room)}人和{target_nickname}发生了{time}min长的ccb行为，总共向ta注入了{V:.2f}ml的生命因子"),
-                                Comp.Image.fromURL(pic),
-                                Comp.Plain("这是ta的初体验。")
-                            ]
-
-                        else:
-                            # 找到已有记录并更新 count/vol
-                            for item in data:
-                                if item.get(id) == mp_target:
-                                    item[count] = item.get(count, 0) + len(mp_room)
-                                    item[vol] = round(item.get(vol, 0) + V, 2)
-                                    chain = [
-                                        Comp.Plain(f"{owner_nickname}等{len(mp_room)}人和{target_nickname}发生了{time}min长的ccb行为，总共向ta注入了{V:.2f}ml的生命因子"),
-                                        Comp.Image.fromURL(pic),
-                                        Comp.Plain(
-                                            f"这是ta的第{item[count]}次。"
-                                            f"ta被累积注入了{item[vol]}ml的生命因子"
-                                        )
-                                    ]
-                                    break
-                        # 先发送消息
-                        yield event.chain_result(chain)
-                        # 再更新 sender 的执行次数
-                        for player in mp_room:
-                            update_num(data, player)
-                        # 写回文件
-                        save_data(data, event.get_group_id())
+                        async for res in cb(event):
+                            yield res
                     else:
                         yield event.plain_result("只有房主才能开始mp")
                 else:
