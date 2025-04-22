@@ -87,25 +87,6 @@ def check_first(data, user_id):
     return True
 
 
-def update_num(data, sender_id):
-    """
-    在 data 中将 sender_id 对应的 num 加 1，
-    如果没有找到对应记录，则新建一条
-    """
-    for item in data:
-        if item.get(KEY_ID) == sender_id:
-            item[KEY_NUM] = item.get(KEY_NUM, 0) + 1
-            return
-    # 如果是第一次作为 sender 执行 ccb，就新建一条记录
-    data.append({
-        KEY_ID: sender_id,
-        KEY_COUNT: 0,  # 从未被别人 ccb 过
-        KEY_VOL: 0.0,  # 累计注入量为 0
-        KEY_FIRST: "",  # 还没被c过
-        KEY_NUM: 1  # c过别人一次
-    })
-
-
 async def cb(event: AstrMessageEvent, mp=False):
     # 解析基础信息
     messages = event.get_messages()
@@ -161,107 +142,88 @@ async def cb(event: AstrMessageEvent, mp=False):
     duration = format((len(mp_room) if mp else 1) * (2 * sender_aphrodisiac if sender_aphrodisiac else 1) * random.uniform(1, 60 * (2 if target_aphrodisiac else 1)), '.2f')
     V = (len(mp_room) if mp else 1) * (2 * sender_aphrodisiac if sender_aphrodisiac else 1) * random.uniform(1, 100 * (2 if target_aphrodisiac else 1))
 
-    # 构造消息链
-    if is_first:
-        for item in data:
-            if item.get(KEY_ID) == (mp_target if mp else target_id):
-                # 如果找到了对应的记录，检查 first 字段是否为空
-                item[KEY_COUNT] = len(mp_room) if mp else 1
-                item[KEY_VOL] = round(V, 2)
-                item[KEY_FIRST] = sender_id
-                item[KEY_CONCEIVE] = conceive
-                item[KEY_CONCEIVE_COUNT] = conceive_count
-                item[KEY_CONCEIVE_TIME] = conceive_time
-                item[KEY_APHRODISIAC] = False
-                break
-        else:
-            # 没找到则在 data 新增 target 的记录
-            data.append({
-                KEY_ID: (mp_target if mp else target_id),
-                KEY_COUNT: len(mp_room) if mp else 1,
-                KEY_VOL: round(V, 2),
-                KEY_FIRST: sender_id,
-                KEY_NUM: 0,
-                KEY_CONDOM: 0,
-                KEY_CONCEIVE: conceive,
-                KEY_CONCEIVE_COUNT: conceive_count,
-                KEY_CONCEIVE_TIME: conceive_time,
-                KEY_APHRODISIAC: False,
-            })
+    cvol = 0.0
+    ccnt = 0
+    # 更新target的记录
+    for item in data:
+        if item.get(KEY_ID) == (mp_target if mp else target_id):
+            item[KEY_COUNT] = item.get(KEY_COUNT, 0) + (len(mp_room) if mp else 1)
+            item[KEY_VOL] = round(item.get(KEY_VOL, 0) + V, 2)
+            item[KEY_CONCEIVE] = conceive
+            item[KEY_CONCEIVE_COUNT] = conceive_count
+            item[KEY_CONCEIVE_TIME] = conceive_time
+            item[KEY_APHRODISIAC] = False
+            cvol = item.get(KEY_VOL, 0.0)
+            ccnt = item.get(KEY_COUNT, 0)
+            break
+    else:
+        # 没找到则在 data 新增 target 的记录
+        data.append({
+            KEY_ID: (mp_target if mp else target_id),
+            KEY_COUNT: len(mp_room) if mp else 1,
+            KEY_VOL: round(V, 2),
+            KEY_FIRST: sender_id,
+            KEY_NUM: 0,
+            KEY_CONDOM: 0,
+            KEY_CONCEIVE: conceive,
+            KEY_CONCEIVE_COUNT: conceive_count,
+            KEY_CONCEIVE_TIME: conceive_time,
+            KEY_APHRODISIAC: False,
+        })
+        
+    chain = [
+        Comp.Plain(
+            f"{sender_nickname}, 你和{target_nickname}发生了{duration}min长的ccb行为, 向ta注入了{V:.2f}ml的生命因子"),
+        Comp.Image.fromURL(pic),
+        Comp.Plain(
+            f"这是ta的初体验。" if is_first else f"这是ta的第{ccnt}次。"
+            f"" if is_first else f"ta被累积注入了{cvol}ml的生命因子。"
+        ),
+        Comp.Plain(f"ta怀孕了" if conceive and not already_conceive else "")
+    ]
 
+    if masturbation:
+        chain = [
+            Comp.Plain(f"你滋味了{duration}min, 向自己注入了{V:.2f}ml的生命因子"),
+            Comp.Image.fromURL(pic),
+            Comp.Plain(
+                f"这是你的初体验。" if is_first else f"这是你的第{ccnt}次。"
+                f"" if is_first else f"你被累积注入了{cvol}ml的生命因子。"
+            )
+        ]
+    if mp:
         chain = [
             Comp.Plain(
-                f"{sender_nickname}, 你和{target_nickname}发生了{duration}min长的ccb行为, 向ta注入了{V:.2f}ml的生命因子"),
+                f"{owner_nickname}等{len(mp_room)}人和{target_nickname}发生了{duration}min长的ccb行为, 总共向ta注入了{V:.2f}ml的生命因子"),
             Comp.Image.fromURL(pic),
-            Comp.Plain(f"这是ta的初体验。"),
+            Comp.Plain(
+                f"这是ta的初体验。" if is_first else f"这是ta的第{ccnt}次。"
+                f"" if is_first else f"ta被累积注入了{cvol}ml的生命因子。"
+            ),
             Comp.Plain(f"ta怀孕了" if conceive and not already_conceive else "")
         ]
 
-        if masturbation:
-            chain = [
-                Comp.Plain(f"你滋味了{duration}min, 向自己注入了{V:.2f}ml的生命因子"),
-                Comp.Image.fromURL(pic),
-                Comp.Plain(f"这是你的初体验。"),
-            ]
-
-        if mp:
-            chain = [
-                Comp.Plain(
-                    f"{owner_nickname}等{len(mp_room)}人和{target_nickname}发生了{duration}min长的ccb行为, 总共向ta注入了{V:.2f}ml的生命因子"),
-                Comp.Image.fromURL(pic),
-                Comp.Plain(f"这是ta的初体验。"),
-                Comp.Plain(f"ta怀孕了" if conceive and not already_conceive else "")
-            ]
-
-    else:
-        # 找到已有记录并更新 count/vol
+    # 更新sender的记录
+    for uid in mp_room if mp else range(1):
         for item in data:
-            if item.get(KEY_ID) == (mp_target if mp else target_id):
-                item[KEY_COUNT] = item.get(KEY_COUNT, 0) + (len(mp_room) if mp else 1)
-                item[KEY_VOL] = round(item.get(KEY_VOL, 0) + V, 2)
-                item[KEY_CONCEIVE] = conceive
-                item[KEY_CONCEIVE_COUNT] = conceive_count
-                item[KEY_CONCEIVE_TIME] = conceive_time
+            if item.get(KEY_ID) == uid:
+                item[KEY_NUM] = item.get(KEY_NUM, 0) + (len(mp_room) if mp else 1)
                 item[KEY_APHRODISIAC] = False
-                chain = [
-                    Comp.Plain(
-                        f"{sender_nickname}, 你和{target_nickname}发生了{duration}min长的ccb行为, 向ta注入了{V:.2f}ml的生命因子"),
-                    Comp.Image.fromURL(pic),
-                    Comp.Plain(
-                        f"这是ta的第{item.get(KEY_COUNT)}次。"
-                        f"ta被累积注入了{item.get(KEY_VOL)}ml的生命因子。"
-                    ),
-                    Comp.Plain(f"ta怀孕了" if conceive and not already_conceive else "")
-                ]
-
-                if masturbation:
-                    chain = [
-                        Comp.Plain(f"你滋味了{duration}min, 向自己注入了{V:.2f}ml的生命因子"),
-                        Comp.Image.fromURL(pic),
-                        Comp.Plain(
-                            f"这是你的第{item.get(KEY_COUNT)}次。"
-                            f"你被累积注入了{item.get(KEY_VOL)}ml的生命因子。"
-                        )
-                    ]
-                if mp:
-                    chain = [
-                        Comp.Plain(
-                            f"{owner_nickname}等{len(mp_room)}人和{target_nickname}发生了{duration}min长的ccb行为，总共向ta注入了{V:.2f}ml的生命因子"),
-                        Comp.Image.fromURL(pic),
-                        Comp.Plain(
-                            f"这是ta的第{item.get(KEY_COUNT)}次。"
-                            f"ta被累积注入了{item.get(KEY_VOL)}ml的生命因子。"
-                        ),
-                        Comp.Plain(f"ta怀孕了" if conceive and not already_conceive else "")
-                    ]
                 break
-
-    # 更新 sender 的执行次数
-    if mp:
-        for uid in mp_room:
-            update_num(data, uid)
-    else:
-        update_num(data, sender_id)
+        # 如果是第一次作为 sender 执行 ccb，就新建一条记录
+        else:
+            data.append({
+                KEY_ID: sender_id,
+                KEY_COUNT: 0,
+                KEY_VOL: 0.0,
+                KEY_FIRST: "",
+                KEY_NUM: (len(mp_room) if mp else 1),
+                KEY_CONDOM: 0,
+                KEY_CONCEIVE: "",
+                KEY_CONCEIVE_COUNT: 0,
+                KEY_CONCEIVE_TIME: 0,
+                KEY_APHRODISIAC: False
+            })
 
     # 写回文件
     save_data(data, event.get_group_id())
