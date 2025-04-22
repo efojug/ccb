@@ -112,8 +112,7 @@ async def cb(event: AstrMessageEvent, mp=False):
     sender_id = (fake_target if fake and fake_user == event.get_sender_id() else event.get_sender_id())
     self_id = event.get_self_id()
     # 优先取 @ 别人的 QQ，否则默认为自己
-    target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id),
-                     sender_id)
+    target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), sender_id)
     masturbation = (target_id == sender_id)
     conceive = 0
     conceive_count = 0
@@ -132,22 +131,18 @@ async def cb(event: AstrMessageEvent, mp=False):
     for item in data:
         if (not mp) and (item.get(KEY_ID) == sender_id):
             sender_aphrodisiac = item.get(KEY_APHRODISIAC, False)
-            task_a_comp = True
-            
+
         if item.get(KEY_ID) == (mp_target if mp else target_id):
             target_aphrodisiac = item.get(KEY_APHRODISIAC, False)
             condom_time = item.get(KEY_CONDOM, 0)
             conceive_count = item.get(KEY_CONCEIVE_COUNT, 0)
             conceive = item.get(KEY_CONCEIVE, "")
-            task_b_comp = True
-        
-        if task_a_comp and task_b_comp:
-            break
-        
+
     already_conceive = bool(conceive)
-    
-    if not((condom_time + safe_time) >= time.time() or masturbation) or conceive:
-        conceive = sender_id if random.random() < 0.15 * (len(mp_room) if mp else 1) * (2 * sender_aphrodisiac if sender_aphrodisiac else 1) else ""
+
+    if not ((condom_time + safe_time) >= time.time() or masturbation) or conceive:
+        conceive = sender_id if random.random() < 0.15 * (len(mp_room) if mp else 1) * (
+            2 * sender_aphrodisiac if sender_aphrodisiac else 1) else ""
         if conceive and not already_conceive:
             conceive_count += 1
             conceive_time = round(time.time(), 2)
@@ -163,18 +158,15 @@ async def cb(event: AstrMessageEvent, mp=False):
                     sender_aphrodisiac += item.get(KEY_APHRODISIAC, False)
 
     # 随机时长和注入量
-    duration = format(
-        (len(mp_room) if mp else 1) * (2 * sender_aphrodisiac if sender_aphrodisiac else 1) * random.uniform(1, 60 * (
-            2 if target_aphrodisiac else 1)), '.2f')
-    V = (len(mp_room) if mp else 1) * (2 * sender_aphrodisiac if sender_aphrodisiac else 1) * random.uniform(1, 100 * (
-        2 if target_aphrodisiac else 1))
+    duration = format((len(mp_room) if mp else 1) * (2 * sender_aphrodisiac if sender_aphrodisiac else 1) * random.uniform(1, 60 * (2 if target_aphrodisiac else 1)), '.2f')
+    V = (len(mp_room) if mp else 1) * (2 * sender_aphrodisiac if sender_aphrodisiac else 1) * random.uniform(1, 100 * (2 if target_aphrodisiac else 1))
 
     # 构造消息链
     if is_first:
         for item in data:
             if item.get(KEY_ID) == (mp_target if mp else target_id):
                 # 如果找到了对应的记录，检查 first 字段是否为空
-                item[KEY_COUNT] = 1
+                item[KEY_COUNT] = len(mp_room) if mp else 1
                 item[KEY_VOL] = round(V, 2)
                 item[KEY_FIRST] = sender_id
                 item[KEY_CONCEIVE] = conceive
@@ -186,7 +178,7 @@ async def cb(event: AstrMessageEvent, mp=False):
             # 没找到则在 data 新增 target 的记录
             data.append({
                 KEY_ID: (mp_target if mp else target_id),
-                KEY_COUNT: 1,
+                KEY_COUNT: len(mp_room) if mp else 1,
                 KEY_VOL: round(V, 2),
                 KEY_FIRST: sender_id,
                 KEY_NUM: 0,
@@ -305,8 +297,7 @@ class ccb(Star):
                     (str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), None)
                 if target_id:
                     try:
-                        target_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=target_id)).get(
-                            'nick', target_id)
+                        target_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=target_id)).get('nick', target_id)
                         fake = True
                         fake_user = sender_id
                         fake_target = target_id
@@ -339,10 +330,8 @@ class ccb(Star):
             self_id = event.get_self_id()
             target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id),
                              sender_id)
-            sender_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=sender_id)).get('nick',
-                                                                                                            sender_id)
-            target_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=target_id)).get('nick',
-                                                                                                            target_id)
+            sender_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=sender_id)).get('nick', sender_id)
+            target_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=target_id)).get('nick', target_id)
             data = load_data(event.get_group_id())
             for item in data:
                 if item.get(KEY_ID) == target_id:
@@ -372,8 +361,7 @@ class ccb(Star):
             check_conceive(event)
             client = event.bot
             # 从 @ 中取目标
-            target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id),
-                             sender_id)
+            target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), sender_id)
 
             # 获取目标昵称
             stranger_info = await client.api.call_action('get_stranger_info', user_id=target_id)
@@ -577,10 +565,8 @@ class ccb(Star):
                     mp_owner = sender_id
                     mp_target = target_id
                     mp_room.append(sender_id)
-                    target_nickname = (await client.api.call_action('get_stranger_info', user_id=target_id)).get('nick',
-                                                                                                                 target_id)
-                    sender_nickname = (await client.api.call_action('get_stranger_info', user_id=sender_id)).get('nick',
-                                                                                                                 sender_id)
+                    target_nickname = (await client.api.call_action('get_stranger_info', user_id=target_id)).get('nick', target_id)
+                    sender_nickname = (await client.api.call_action('get_stranger_info', user_id=sender_id)).get('nick', sender_id)
                     yield event.plain_result(
                         f"成功创建房间，房主是{sender_nickname}，目标是{target_nickname}\n使用/mp join加入房间")
                 else:
@@ -591,14 +577,10 @@ class ccb(Star):
                 if mp_created:
                     if sender_id not in mp_room:
                         mp_room.append(sender_id)
-                        target_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_target)).get(
-                            'nick', mp_target)
-                        sender_nickname = (await client.api.call_action('get_stranger_info', user_id=sender_id)).get(
-                            'nick', sender_id)
-                        owner_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_owner)).get(
-                            'nick', mp_owner)
-                        yield event.plain_result(
-                            f"{sender_nickname}加入了房间，房主是{owner_nickname}，目标是{target_nickname}")
+                        target_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_target)).get('nick', mp_target)
+                        sender_nickname = (await client.api.call_action('get_stranger_info', user_id=sender_id)).get('nick', sender_id)
+                        owner_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_owner)).get('nick', mp_owner)
+                        yield event.plain_result(f"{sender_nickname}加入了房间，房主是{owner_nickname}，目标是{target_nickname}")
                     else:
                         yield event.plain_result("你已经在房间里了")
                 else:
@@ -627,10 +609,8 @@ class ccb(Star):
                     tasks = [event.bot.api.call_action('get_stranger_info', user_id=u) for u in mp_room]
                     infos = await asyncio.gather(*tasks)
                     names = [info.get('nick', u) for info, u in zip(infos, mp_room)]
-                    owner_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_owner)).get('nick',
-                                                                                                               mp_owner)
-                    target_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_target)).get('nick',
-                                                                                                                 mp_target)
+                    owner_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_owner)).get('nick', mp_owner)
+                    target_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_target)).get('nick', mp_target)
                     yield event.plain_result(
                         f"房主：{owner_nickname}\n目标：{target_nickname}\n房间成员：{', '.join(names)} (共 {len(mp_room)} 人)")
                 else:
