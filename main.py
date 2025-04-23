@@ -147,12 +147,13 @@ async def cb(event: AstrMessageEvent, mp=False):
     V = (len(mp_room) if mp else 1) * (2 * sender_aphrodisiac if sender_aphrodisiac else 1) * random.uniform(1, 100 * (
         2 if target_aphrodisiac else 1))
 
-    cvol = 0.0
-    ccnt = 0
+    cvol = round(V, 2)
+    ccnt = len(mp_room) if mp else 1
+
     # 更新target的记录
     for item in data:
         if item.get(KEY_ID) == (mp_target if mp else target_id):
-            item[KEY_COUNT] = item.get(KEY_COUNT, 0) + len(mp_room) if mp else 1
+            item[KEY_COUNT] = item.get(KEY_COUNT, 0) + (len(mp_room) if mp else 1)
             item[KEY_VOL] = round(item.get(KEY_VOL, 0.0) + V, 2)
             item[KEY_CONCEIVE] = conceive
             item[KEY_CONCEIVE_COUNT] = conceive_count
@@ -212,7 +213,7 @@ async def cb(event: AstrMessageEvent, mp=False):
         # 如果是第一次作为 sender 执行 ccb，就新建一条记录
         else:
             data.append({
-                KEY_ID: sender_id,
+                KEY_ID: uid if mp else sender_id,
                 KEY_COUNT: 0,
                 KEY_VOL: 0.0,
                 KEY_FIRST: "",
