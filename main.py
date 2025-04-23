@@ -90,41 +90,43 @@ def check_first(data, user_id):
 async def cb(event: AstrMessageEvent, mp=False):
     # 解析基础信息
     messages = event.get_messages()
-    sender_id = (fake_target if fake and fake_user == event.get_sender_id() else event.get_sender_id())
+    sender_id = fake_target if fake and fake_user == event.get_sender_id() else event.get_sender_id()
     self_id = event.get_self_id()
     # 优先取 @ 别人的 QQ，否则默认为自己
-    target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), sender_id)
+    target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id),
+                     sender_id)
     masturbation = (target_id == sender_id)
-    conceive = 0
+    condom_time = 0.0
+    conceive = ""
     conceive_count = 0
-    conceive_time = 0
+    conceive_time = 0.0
     sender_aphrodisiac = 0
     target_aphrodisiac = False
     # 读记录
     data = load_data(event.get_group_id())
 
-    is_first = check_first(data, (mp_target if mp else target_id))
+    is_first = check_first(data, mp_target if mp else target_id)
     from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
     assert isinstance(event, AiocqhttpMessageEvent)
     client = event.bot
 
     pic = get_avatar(mp_target if mp else target_id)
     for item in data:
-        if (not mp) and (item.get(KEY_ID) == sender_id):
+        if not mp and item.get(KEY_ID) == sender_id:
             sender_aphrodisiac = item.get(KEY_APHRODISIAC, False)
 
         if item.get(KEY_ID) == (mp_target if mp else target_id):
             target_aphrodisiac = item.get(KEY_APHRODISIAC, False)
-            condom_time = item.get(KEY_CONDOM, 0)
+            condom_time = item.get(KEY_CONDOM, 0.0)
             conceive_count = item.get(KEY_CONCEIVE_COUNT, 0)
             conceive = item.get(KEY_CONCEIVE, "")
 
     already_conceive = bool(conceive)
 
-    if not ((condom_time + safe_time) >= time.time() or masturbation) or conceive:
-        conceive = sender_id if random.random() < 0.15 * (len(mp_room) if mp else 1) * (
-            2 * sender_aphrodisiac if sender_aphrodisiac else 1) else ""
-        if conceive and not already_conceive:
+    if not (condom_time + safe_time >= time.time() or masturbation or already_conceive):
+        conceive = sender_id if (random.random() < 0.15 * (len(mp_room) if mp else 1) * (
+            (2 * sender_aphrodisiac) if sender_aphrodisiac else 1)) else ""
+        if conceive:
             conceive_count += 1
             conceive_time = round(time.time(), 2)
 
@@ -139,16 +141,19 @@ async def cb(event: AstrMessageEvent, mp=False):
                     sender_aphrodisiac += item.get(KEY_APHRODISIAC, False)
 
     # 随机时长和注入量
-    duration = format((len(mp_room) if mp else 1) * (2 * sender_aphrodisiac if sender_aphrodisiac else 1) * random.uniform(1, 60 * (2 if target_aphrodisiac else 1)), '.2f')
-    V = (len(mp_room) if mp else 1) * (2 * sender_aphrodisiac if sender_aphrodisiac else 1) * random.uniform(1, 100 * (2 if target_aphrodisiac else 1))
+    duration = format(
+        (len(mp_room) if mp else 1) * (2 * sender_aphrodisiac if sender_aphrodisiac else 1) * random.uniform(1, 60 * (
+            2 if target_aphrodisiac else 1)), '.2f')
+    V = (len(mp_room) if mp else 1) * (2 * sender_aphrodisiac if sender_aphrodisiac else 1) * random.uniform(1, 100 * (
+        2 if target_aphrodisiac else 1))
 
     cvol = 0.0
     ccnt = 0
     # 更新target的记录
     for item in data:
         if item.get(KEY_ID) == (mp_target if mp else target_id):
-            item[KEY_COUNT] = item.get(KEY_COUNT, 0) + (len(mp_room) if mp else 1)
-            item[KEY_VOL] = round(item.get(KEY_VOL, 0) + V, 2)
+            item[KEY_COUNT] = item.get(KEY_COUNT, 0) + len(mp_room) if mp else 1
+            item[KEY_VOL] = round(item.get(KEY_VOL, 0.0) + V, 2)
             item[KEY_CONCEIVE] = conceive
             item[KEY_CONCEIVE_COUNT] = conceive_count
             item[KEY_CONCEIVE_TIME] = conceive_time
@@ -159,26 +164,24 @@ async def cb(event: AstrMessageEvent, mp=False):
     else:
         # 没找到则在 data 新增 target 的记录
         data.append({
-            KEY_ID: (mp_target if mp else target_id),
+            KEY_ID: mp_target if mp else target_id,
             KEY_COUNT: len(mp_room) if mp else 1,
             KEY_VOL: round(V, 2),
             KEY_FIRST: sender_id,
             KEY_NUM: 0,
-            KEY_CONDOM: 0,
+            KEY_CONDOM: 0.0,
             KEY_CONCEIVE: conceive,
             KEY_CONCEIVE_COUNT: conceive_count,
             KEY_CONCEIVE_TIME: conceive_time,
             KEY_APHRODISIAC: False,
         })
-        
+
     chain = [
         Comp.Plain(
             f"{sender_nickname}, 你和{target_nickname}发生了{duration}min长的ccb行为, 向ta注入了{V:.2f}ml的生命因子"),
         Comp.Image.fromURL(pic),
-        Comp.Plain(
-            f"这是ta的初体验。" if is_first else f"这是ta的第{ccnt}次。"
-            f"" if is_first else f"ta被累积注入了{cvol}ml的生命因子。"
-        ),
+        Comp.Plain(f"这是ta的初体验。" if is_first else f"这是ta的第{ccnt}次。"),
+        Comp.Plain(f"" if is_first else f"ta被累积注入了{cvol}ml的生命因子。"),
         Comp.Plain(f"ta怀孕了" if conceive and not already_conceive else "")
     ]
 
@@ -186,28 +189,24 @@ async def cb(event: AstrMessageEvent, mp=False):
         chain = [
             Comp.Plain(f"你滋味了{duration}min, 向自己注入了{V:.2f}ml的生命因子"),
             Comp.Image.fromURL(pic),
-            Comp.Plain(
-                f"这是你的初体验。" if is_first else f"这是你的第{ccnt}次。"
-                f"" if is_first else f"你被累积注入了{cvol}ml的生命因子。"
-            )
+            Comp.Plain(f"这是你的初体验。" if is_first else f"这是你的第{ccnt}次。"),
+            Comp.Plain(f"" if is_first else f"你被累积注入了{cvol}ml的生命因子。")
         ]
     if mp:
         chain = [
             Comp.Plain(
                 f"{owner_nickname}等{len(mp_room)}人和{target_nickname}发生了{duration}min长的ccb行为, 总共向ta注入了{V:.2f}ml的生命因子"),
             Comp.Image.fromURL(pic),
-            Comp.Plain(
-                f"这是ta的初体验。" if is_first else f"这是ta的第{ccnt}次。"
-                f"" if is_first else f"ta被累积注入了{cvol}ml的生命因子。"
-            ),
+            Comp.Plain(f"这是ta的初体验。" if is_first else f"这是ta的第{ccnt}次。"),
+            Comp.Plain(f"" if is_first else f"ta被累积注入了{cvol}ml的生命因子。"),
             Comp.Plain(f"ta怀孕了" if conceive and not already_conceive else "")
         ]
 
     # 更新sender的记录
     for uid in mp_room if mp else range(1):
         for item in data:
-            if item.get(KEY_ID) == uid:
-                item[KEY_NUM] = item.get(KEY_NUM, 0) + (len(mp_room) if mp else 1)
+            if item.get(KEY_ID) == (uid if mp else sender_id):
+                item[KEY_NUM] = item.get(KEY_NUM, 0) + 1
                 item[KEY_APHRODISIAC] = False
                 break
         # 如果是第一次作为 sender 执行 ccb，就新建一条记录
@@ -217,11 +216,11 @@ async def cb(event: AstrMessageEvent, mp=False):
                 KEY_COUNT: 0,
                 KEY_VOL: 0.0,
                 KEY_FIRST: "",
-                KEY_NUM: (len(mp_room) if mp else 1),
-                KEY_CONDOM: 0,
+                KEY_NUM: 1,
+                KEY_CONDOM: 0.0,
                 KEY_CONCEIVE: "",
                 KEY_CONCEIVE_COUNT: 0,
-                KEY_CONCEIVE_TIME: 0,
+                KEY_CONCEIVE_TIME: 0.0,
                 KEY_APHRODISIAC: False
             })
 
@@ -232,12 +231,15 @@ async def cb(event: AstrMessageEvent, mp=False):
     return event.chain_result(chain)
 
 
-def check_conceive(event: AstrMessageEvent):
+def pre_check(event: AstrMessageEvent):
     data = load_data(event.get_group_id())
     for item in data:
-        if item.get(KEY_CONCEIVE, "") and (item.get(KEY_CONCEIVE_TIME, 0) + conceive_time <= time.time()):
+        if item.get(KEY_CONCEIVE, "") and (item.get(KEY_CONCEIVE_TIME, 0.0) + conceive_time <= time.time()):
             item[KEY_CONCEIVE] = ""
-            item[KEY_CONCEIVE_TIME] = 0
+            item[KEY_CONCEIVE_TIME] = 0.0
+        if item.get(KEY_CONDOM, 0.0) + safe_time <= time.time():
+            item[KEY_CONDOM] = 0.0
+    save_data(data, event.get_group_id())
 
 
 @register("ccb", "efojug", "和群友ccb的插件", "2.1.8")
@@ -248,7 +250,7 @@ class ccb(Star):
     @filter.command("fake")
     async def fake(self, event: AstrMessageEvent):
         global fake, fake_user, fake_target
-        check_conceive(event)
+        pre_check(event)
         if event.get_platform_name() == "aiocqhttp":
             sender_id = event.get_sender_id()
             # if sender_id in {"3307566484", "3183970497"}:
@@ -259,7 +261,8 @@ class ccb(Star):
                     (str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), None)
                 if target_id:
                     try:
-                        target_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=target_id)).get('nick', target_id)
+                        target_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=target_id)).get(
+                            'nick', target_id)
                         fake = True
                         fake_user = sender_id
                         fake_target = target_id
@@ -277,7 +280,7 @@ class ccb(Star):
         global fake
         # 仅支持 aiocqhttp 平台
         if event.get_platform_name() == "aiocqhttp":
-            check_conceive(event)
+            pre_check(event)
             yield await cb(event)
         fake = False
 
@@ -285,15 +288,17 @@ class ccb(Star):
     async def rut(self, event: AstrMessageEvent):
         global fake
         if event.get_platform_name() == "aiocqhttp":
-            check_conceive(event)
+            pre_check(event)
             # 解析基础信息
             messages = event.get_messages()
-            sender_id = (fake_target if fake and fake_user == event.get_sender_id() else event.get_sender_id())
+            sender_id = fake_target if fake and fake_user == event.get_sender_id() else event.get_sender_id()
             self_id = event.get_self_id()
             target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id),
                              sender_id)
-            sender_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=sender_id)).get('nick', sender_id)
-            target_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=target_id)).get('nick', target_id)
+            sender_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=sender_id)).get('nick',
+                                                                                                            sender_id)
+            target_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=target_id)).get('nick',
+                                                                                                            target_id)
             data = load_data(event.get_group_id())
             for item in data:
                 if item.get(KEY_ID) == target_id:
@@ -320,14 +325,15 @@ class ccb(Star):
         if event.get_platform_name() == "aiocqhttp":
             from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
             assert isinstance(event, AiocqhttpMessageEvent)
-            check_conceive(event)
+            pre_check(event)
             client = event.bot
             # 从 @ 中取目标
-            target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), sender_id)
+            target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id),
+                             sender_id)
 
             # 获取目标昵称
-            stranger_info = await client.api.call_action('get_stranger_info', user_id=target_id)
-            target_nickname = stranger_info.get('nick', target_id)
+            target_nickname = (await client.api.call_action('get_stranger_info', user_id=target_id)).get('nick',
+                                                                                                         target_id)
 
             data = load_data(event.get_group_id())
 
@@ -336,10 +342,8 @@ class ccb(Star):
                     first_id = item.get(KEY_FIRST)
                     if first_id:
                         # 获取第一次昵称
-                        stranger_info = await client.api.call_action(
-                            'get_stranger_info', user_id=first_id
-                        )
-                        first_nickname = stranger_info.get('nick', first_id)
+                        first_nickname = (await client.api.call_action('get_stranger_info', user_id=first_id)).get(
+                            'nick', first_id)
                         chain = [
                             Comp.Plain(f"{target_nickname}的第一次给了{first_nickname}"),
                             Comp.Image.fromURL(get_avatar(first_id))
@@ -366,7 +370,7 @@ class ccb(Star):
         if event.get_platform_name() == "aiocqhttp":
             from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
             assert isinstance(event, AiocqhttpMessageEvent)
-            check_conceive(event)
+            pre_check(event)
             client = event.bot
 
             data = load_data(event.get_group_id())
@@ -424,11 +428,17 @@ class ccb(Star):
         if event.get_platform_name() == "aiocqhttp":
             from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
             assert isinstance(event, AiocqhttpMessageEvent)
-            check_conceive(event)
+            pre_check(event)
             client = event.bot
             # 从 @ 中取目标
             target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id),
                              sender_id)
+
+            # 获取目标昵称
+            first_nickname = ""
+            conceive_nickname = ""
+            target_nickname = (await client.api.call_action('get_stranger_info', user_id=target_id)).get('nick',
+                                                                                                         target_id)
 
             data = load_data(event.get_group_id())
 
@@ -447,11 +457,6 @@ class ccb(Star):
                 fake = False
                 return event.plain_result(f"{target_nickname}还是纯洁的哦~")
 
-            # 获取目标昵称
-            first_nickname = ""
-            conceive_nickname = ""
-            target_nickname = (await client.api.call_action('get_stranger_info', user_id=target_id)).get('nick',
-                                                                                                         target_id)
             if first_id: first_nickname = (await client.api.call_action('get_stranger_info', user_id=first_id)).get(
                 'nick', first_id)
             if conceive: conceive_nickname = (await client.api.call_action('get_stranger_info', user_id=conceive)).get(
@@ -461,7 +466,7 @@ class ccb(Star):
             msg.append(f"ta的第一次给了{first_nickname}" if first_id else "ta还是纯洁的"),
             msg.append(f"被灌注了{count}次，{vol}ml" if count else ""),
             msg.append(f"共怀孕了{conceive_count}次" if conceive_count else ""),
-            msg.append(f"怀了{conceive_nickname}的生命因子" if conceive else "当前没有身孕"),
+            msg.append(f"当前怀了{conceive_nickname}的生命因子" if conceive else "当前没有身孕"),
             msg.append(f"ccb了{num}次" if num else "还没有ccb过别人")
             msg.append("当前正在发情期" if aphrodisiac else "")
             fake = False
@@ -472,15 +477,18 @@ class ccb(Star):
     async def condom(self, event: AstrMessageEvent):
         global fake
         if event.get_platform_name() == "aiocqhttp":
-            check_conceive(event)
-            sender_id = (fake_target if fake and fake_user == event.get_sender_id() else event.get_sender_id())
+            pre_check(event)
+            sender_id = fake_target if fake and fake_user == event.get_sender_id() else event.get_sender_id()
             sender_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=sender_id)).get('nick',
                                                                                                             sender_id)
+            condom_time = 0
             data = load_data(event.get_group_id())
             for item in data:
                 if item.get(KEY_ID) == sender_id:
-                    condom_time = item.get(KEY_CONDOM, 0)
-            if (condom_time + 7200) <= time.time():
+                    condom_time = item.get(KEY_CONDOM, 0.0)
+                    break
+
+            if condom_time + 7200 <= time.time():
                 for item in data:
                     if item.get(KEY_ID) == sender_id:
                         item[KEY_CONDOM] = round(time.time(), 2)
@@ -491,7 +499,7 @@ class ccb(Star):
             else:
                 for item in data:
                     if item.get(KEY_ID) == sender_id:
-                        item[KEY_CONDOM] = 0
+                        item[KEY_CONDOM] = 0.0
                         yield event.plain_result(f"{sender_nickname}摘下了安全套")
                         break
 
@@ -511,7 +519,7 @@ class ccb(Star):
         if event.get_platform_name() == "aiocqhttp":
             from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
             assert isinstance(event, AiocqhttpMessageEvent)
-            check_conceive(event)
+            pre_check(event)
             client = event.bot
             messages = event.get_messages()
             self_id = event.get_self_id()
@@ -527,8 +535,10 @@ class ccb(Star):
                     mp_owner = sender_id
                     mp_target = target_id
                     mp_room.append(sender_id)
-                    target_nickname = (await client.api.call_action('get_stranger_info', user_id=target_id)).get('nick', target_id)
-                    sender_nickname = (await client.api.call_action('get_stranger_info', user_id=sender_id)).get('nick', sender_id)
+                    target_nickname = (await client.api.call_action('get_stranger_info', user_id=target_id)).get('nick',
+                                                                                                                 target_id)
+                    sender_nickname = (await client.api.call_action('get_stranger_info', user_id=sender_id)).get('nick',
+                                                                                                                 sender_id)
                     yield event.plain_result(
                         f"成功创建房间，房主是{sender_nickname}，目标是{target_nickname}\n使用/mp join加入房间")
                 else:
@@ -539,10 +549,14 @@ class ccb(Star):
                 if mp_created:
                     if sender_id not in mp_room:
                         mp_room.append(sender_id)
-                        target_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_target)).get('nick', mp_target)
-                        sender_nickname = (await client.api.call_action('get_stranger_info', user_id=sender_id)).get('nick', sender_id)
-                        owner_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_owner)).get('nick', mp_owner)
-                        yield event.plain_result(f"{sender_nickname}加入了房间，房主是{owner_nickname}，目标是{target_nickname}")
+                        target_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_target)).get(
+                            'nick', mp_target)
+                        sender_nickname = (await client.api.call_action('get_stranger_info', user_id=sender_id)).get(
+                            'nick', sender_id)
+                        owner_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_owner)).get(
+                            'nick', mp_owner)
+                        yield event.plain_result(
+                            f"{sender_nickname}加入了房间，房主是{owner_nickname}，目标是{target_nickname}")
                     else:
                         yield event.plain_result("你已经在房间里了")
                 else:
@@ -571,8 +585,10 @@ class ccb(Star):
                     tasks = [event.bot.api.call_action('get_stranger_info', user_id=u) for u in mp_room]
                     infos = await asyncio.gather(*tasks)
                     names = [info.get('nick', u) for info, u in zip(infos, mp_room)]
-                    owner_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_owner)).get('nick', mp_owner)
-                    target_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_target)).get('nick', mp_target)
+                    owner_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_owner)).get('nick',
+                                                                                                               mp_owner)
+                    target_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_target)).get('nick',
+                                                                                                                 mp_target)
                     yield event.plain_result(
                         f"房主：{owner_nickname}\n目标：{target_nickname}\n房间成员：{', '.join(names)} (共 {len(mp_room)} 人)")
                 else:
@@ -581,7 +597,7 @@ class ccb(Star):
             elif command == "start":
                 if mp_created:
                     if sender_id == mp_owner:
-                        async for res in cb(event):
+                        async for res in cb(event, True):
                             yield res
                     else:
                         yield event.plain_result("只有房主才能开始mp")
@@ -592,6 +608,9 @@ class ccb(Star):
                 if mp_created:
                     if sender_id == mp_owner:
                         mp_created = False
+                        mp_owner = ""
+                        mp_room = []
+                        mp_target = ""
                     else:
                         yield event.plain_result("只有房主才能解散房间")
                 else:
