@@ -95,8 +95,9 @@ async def cb(event: AstrMessageEvent, mp=False):
     # 优先取 @ 别人的 QQ，否则默认为自己
     target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id),
                      sender_id)
-    masturbation = (target_id == sender_id)
-    condom_time = 0.0
+    masturbation = target_id == sender_id
+    target_condom = 0.0
+    sender_condom = 0.0
     conceive = ""
     conceive_count = 0
     conceive_time = 0.0
@@ -114,17 +115,25 @@ async def cb(event: AstrMessageEvent, mp=False):
     for item in data:
         if not mp and item.get(KEY_ID) == sender_id:
             sender_aphrodisiac = item.get(KEY_APHRODISIAC, False)
-
+            sender_condom = item.get(KEY_CONDOM, 0.0)
         if item.get(KEY_ID) == (mp_target if mp else target_id):
             target_aphrodisiac = item.get(KEY_APHRODISIAC, False)
-            condom_time = item.get(KEY_CONDOM, 0.0)
+            target_condom = item.get(KEY_CONDOM, 0.0)
             conceive_count = item.get(KEY_CONCEIVE_COUNT, 0)
             conceive = item.get(KEY_CONCEIVE, "")
             conceive_time = item.get(KEY_CONCEIVE_TIME, 0.0)
 
+    if mp:
+        owner_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_owner)).get('nick', mp_owner)
+        for item in data:
+            for player in mp_room:
+                if item.get(KEY_ID) == player:
+                    sender_aphrodisiac += item.get(KEY_APHRODISIAC, False)
+                    sender_condom += item.get(KEY_CONDOM, 0.0)
+
     already_conceive = bool(conceive)
 
-    if not (condom_time + safe_time >= time.time() or masturbation or already_conceive):
+    if all([sender_condom + safe_time < time.time(), target_condom + safe_time < time.time(), not masturbation, not already_conceive]):
         conceive = sender_id if (random.random() < 0.15 * (len(mp_room) if mp else 1) * (
             (2 * sender_aphrodisiac) if sender_aphrodisiac else 1)) else ""
         if conceive:
@@ -134,12 +143,6 @@ async def cb(event: AstrMessageEvent, mp=False):
     # 获取目标昵称
     target_nickname = (await client.api.call_action('get_stranger_info', user_id=target_id)).get('nick', target_id)
     sender_nickname = (await client.api.call_action('get_stranger_info', user_id=sender_id)).get('nick', sender_id)
-    if mp:
-        owner_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_owner)).get('nick', mp_owner)
-        for item in data:
-            for player in mp_room:
-                if item.get(KEY_ID) == player:
-                    sender_aphrodisiac += item.get(KEY_APHRODISIAC, False)
 
     # 随机时长和注入量
     duration = format(
@@ -192,7 +195,8 @@ async def cb(event: AstrMessageEvent, mp=False):
             Comp.Plain(f"你滋味了{duration}min, 向自己注入了{V:.2f}ml的生命因子"),
             Comp.Image.fromURL(pic),
             Comp.Plain(f"这是你的初体验。" if is_first else f"这是你的第{ccnt}次。"),
-            Comp.Plain(f"" if is_first else f"你被累积注入了{cvol}ml的生命因子。")
+            Comp.Plain(f"" if is_first else f"你被累积注入了{cvol}ml的生命因子。"),
+            Comp.Plain(f"你怀孕了" if conceive and not already_conceive else "")
         ]
     if mp:
         chain = [
@@ -453,7 +457,7 @@ class ccb(Star):
                     conceive = item.get(KEY_CONCEIVE, "")
                     conceive_count = item.get(KEY_CONCEIVE_COUNT, 0)
                     aphrodisiac = item.get(KEY_APHRODISIAC, False)
-                    condom_time = item.get(KEY_CONDOM, 0.0)
+                    condom = item.get(KEY_CONDOM, 0.0)
                     break
             else:
                 # 没找到记录，说明没有被 ccb 过
@@ -466,7 +470,7 @@ class ccb(Star):
                 'nick', conceive)
 
             # 计算剩余避孕时间
-            remaining = int(condom_time + safe_time - time.time())
+            remaining = int(condom + safe_time - time.time())
             mins, secs = divmod(remaining, 60)
             hours, mins = divmod(mins, 60)
 
@@ -476,7 +480,7 @@ class ccb(Star):
                    f"怀孕了{conceive_count}次" if conceive_count else "还没有怀孕过",
                    f"正在孕育ta和{conceive_nickname}的生命精华" if conceive else "当前没有身孕",
                    "正在发情期" if aphrodisiac else "",
-                   "没有避孕保护" if condom_time + safe_time < time.time() else f"安全套剩余时间：{hours}h{mins}m{secs}s"]
+                   "没有避孕保护" if condom + safe_time < time.time() else f"安全套剩余时间：{hours}h{mins}m{secs}s"]
             fake = False
             return event.plain_result("\n".join(msg))
         return None
@@ -489,14 +493,14 @@ class ccb(Star):
             sender_id = fake_target if fake and fake_user == event.get_sender_id() else event.get_sender_id()
             sender_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=sender_id)).get('nick',
                                                                                                             sender_id)
-            condom_time = 0
+            condom = 0
             data = load_data(event.get_group_id())
             for item in data:
                 if item.get(KEY_ID) == sender_id:
-                    condom_time = item.get(KEY_CONDOM, 0.0)
+                    condom = item.get(KEY_CONDOM, 0.0)
                     break
 
-            if condom_time + 7200 <= time.time():
+            if condom + 7200 <= time.time():
                 for item in data:
                     if item.get(KEY_ID) == sender_id:
                         item[KEY_CONDOM] = round(time.time(), 2)
