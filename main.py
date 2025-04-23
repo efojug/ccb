@@ -46,19 +46,19 @@ def ensure_data_file(group_id=None):
     确保数据文件存在且为有效 JSON 数组；
     否则初始化为 []。
     """
-    DATA_FILE = get_data_file(group_id)
-    dir_path = os.path.dirname(DATA_FILE)
+    data_file = get_data_file(group_id)
+    dir_path = os.path.dirname(data_file)
     os.makedirs(dir_path, exist_ok=True)
-    if not os.path.isfile(DATA_FILE):
-        with open(DATA_FILE, 'w', encoding='utf-8') as f:
+    if not os.path.isfile(data_file):
+        with open(data_file, 'w', encoding='utf-8') as f:
             json.dump([], f, ensure_ascii=False, indent=2)
     else:
         try:
-            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+            with open(data_file, 'r', encoding='utf-8') as f:
                 json.load(f)
         except (json.JSONDecodeError, ValueError):
             print(f"[{__name__}] 解析 record.json 失败，重置文件为 []。")
-            with open(DATA_FILE, 'w', encoding='utf-8') as f:
+            with open(data_file, 'w', encoding='utf-8') as f:
                 json.dump([], f, ensure_ascii=False, indent=2)
 
 
