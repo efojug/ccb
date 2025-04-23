@@ -120,6 +120,7 @@ async def cb(event: AstrMessageEvent, mp=False):
             condom_time = item.get(KEY_CONDOM, 0.0)
             conceive_count = item.get(KEY_CONCEIVE_COUNT, 0)
             conceive = item.get(KEY_CONCEIVE, "")
+            conceive_time = item.get(KEY_CONCEIVE_TIME, 0.0)
 
     already_conceive = bool(conceive)
 
@@ -452,6 +453,7 @@ class ccb(Star):
                     conceive = item.get(KEY_CONCEIVE, "")
                     conceive_count = item.get(KEY_CONCEIVE_COUNT, 0)
                     aphrodisiac = item.get(KEY_APHRODISIAC, False)
+                    condom_time = item.get(KEY_CONDOM, 0.0)
                     break
             else:
                 # 没找到记录，说明没有被 ccb 过
@@ -463,13 +465,18 @@ class ccb(Star):
             if conceive: conceive_nickname = (await client.api.call_action('get_stranger_info', user_id=conceive)).get(
                 'nick', conceive)
 
-            msg = [f"{target_nickname}的状态："]
-            msg.append(f"ta的第一次给了{first_nickname}" if first_id else "ta还是纯洁的"),
-            msg.append(f"被灌注了{count}次，{vol}ml" if count else ""),
-            msg.append(f"共怀孕了{conceive_count}次" if conceive_count else ""),
-            msg.append(f"当前怀了{conceive_nickname}的生命因子" if conceive else "当前没有身孕"),
-            msg.append(f"ccb了{num}次" if num else "还没有ccb过别人")
-            msg.append("当前正在发情期" if aphrodisiac else "")
+            # 计算剩余避孕时间
+            remaining = int(condom_time + safe_time - time.time())
+            mins, secs = divmod(remaining, 60)
+            hours, mins = divmod(mins, 60)
+
+            msg = [f"{target_nickname}的状态：", f"ccb了{num}次" if num else "还没有ccb过别人",
+                   f"被灌注了{count}次，{vol}ml" if count else "",
+                   f"ta的第一次给了{first_nickname}" if first_id else "ta还是纯洁的",
+                   f"怀孕了{conceive_count}次" if conceive_count else "还没有怀孕过",
+                   f"正在孕育ta和{conceive_nickname}的生命精华" if conceive else "当前没有身孕",
+                   "正在发情期" if aphrodisiac else "",
+                   "没有避孕保护" if condom_time + safe_time < time.time() else f"安全套剩余时间：{hours}h{mins}m{secs}s"]
             fake = False
             return event.plain_result("\n".join(msg))
         return None
