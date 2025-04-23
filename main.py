@@ -147,8 +147,8 @@ async def cb(event: AstrMessageEvent, mp=False):
     V = (len(mp_room) if mp else 1) * (2 * sender_aphrodisiac if sender_aphrodisiac else 1) * random.uniform(1, 100 * (
         2 if target_aphrodisiac else 1))
 
-    cvol = round(V, 2)
     ccnt = len(mp_room) if mp else 1
+    cvol = round(V, 2)
 
     # 更新target的记录
     for item in data:
@@ -166,8 +166,8 @@ async def cb(event: AstrMessageEvent, mp=False):
         # 没找到则在 data 新增 target 的记录
         data.append({
             KEY_ID: mp_target if mp else target_id,
-            KEY_COUNT: len(mp_room) if mp else 1,
-            KEY_VOL: round(V, 2),
+            KEY_COUNT: ccnt,
+            KEY_VOL: cvol,
             KEY_FIRST: sender_id,
             KEY_NUM: 0,
             KEY_CONDOM: 0.0,
