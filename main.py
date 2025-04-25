@@ -93,8 +93,7 @@ async def cb(event: AstrMessageEvent, mp=False):
     sender_id = fake_target if fake and fake_user == event.get_sender_id() else event.get_sender_id()
     self_id = event.get_self_id()
     # 优先取 @ 别人的 QQ，否则默认为自己
-    target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id),
-                     sender_id)
+    target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), sender_id)
     masturbation = target_id == sender_id
     target_condom = 0.0
     sender_condom = 0.0
@@ -112,30 +111,30 @@ async def cb(event: AstrMessageEvent, mp=False):
     client = event.bot
 
     pic = get_avatar(mp_target if mp else target_id)
-    for item in data:
-        if not mp and item.get(KEY_ID) == sender_id:
-            sender_aphrodisiac = item.get(KEY_APHRODISIAC, False)
-            sender_condom = item.get(KEY_CONDOM, 0.0)
-        if item.get(KEY_ID) == (mp_target if mp else target_id):
-            target_aphrodisiac = item.get(KEY_APHRODISIAC, False)
-            target_condom = item.get(KEY_CONDOM, 0.0)
-            conceive_count = item.get(KEY_CONCEIVE_COUNT, 0)
-            conceive = item.get(KEY_CONCEIVE, "")
-            conceive_time = item.get(KEY_CONCEIVE_TIME, 0.0)
 
-    if mp:
-        owner_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_owner)).get('nick', mp_owner)
+    if mp: owner_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_owner)).get('nick', mp_owner)
+
+    sender_complete = False
+    target_complete = False
+    for uid in mp_room if mp else range(1):
         for item in data:
-            for player in mp_room:
-                if item.get(KEY_ID) == player:
-                    sender_aphrodisiac += item.get(KEY_APHRODISIAC, False)
-                    sender_condom += item.get(KEY_CONDOM, 0.0)
+            if item.get(KEY_ID) == (uid if mp else sender_id):
+                sender_aphrodisiac += item.get(KEY_APHRODISIAC, False)
+                sender_condom += item.get(KEY_CONDOM, 0.0)
+                sender_complete = True
+            if item.get(KEY_ID) == (mp_target if mp else target_id):
+                target_aphrodisiac = item.get(KEY_APHRODISIAC, False)
+                target_condom = item.get(KEY_CONDOM, 0.0)
+                conceive_count = item.get(KEY_CONCEIVE_COUNT, 0)
+                conceive = item.get(KEY_CONCEIVE, '')
+                conceive_time = item.get(KEY_CONCEIVE_TIME, 0.0)
+                target_complete = True
+            if sender_complete and target_complete: break
 
     already_conceive = bool(conceive)
 
     if all([sender_condom + safe_time < time.time(), target_condom + safe_time < time.time(), not masturbation, not already_conceive]):
-        conceive = sender_id if (random.random() < 0.15 * (len(mp_room) if mp else 1) * (
-            (2 * sender_aphrodisiac) if sender_aphrodisiac else 1)) else ""
+        conceive = sender_id if (random.random() < 0.15 * (len(mp_room) if mp else 1) * ((2 * sender_aphrodisiac) if sender_aphrodisiac else 1)) else ""
         if conceive:
             conceive_count += 1
             conceive_time = round(time.time(), 2)
@@ -145,14 +144,11 @@ async def cb(event: AstrMessageEvent, mp=False):
     sender_nickname = (await client.api.call_action('get_stranger_info', user_id=sender_id)).get('nick', sender_id)
 
     # 随机时长和注入量
-    duration = format(
-        (len(mp_room) if mp else 1) * (2 * sender_aphrodisiac if sender_aphrodisiac else 1) * random.uniform(1, 60 * (
-            2 if target_aphrodisiac else 1)), '.2f')
-    V = (len(mp_room) if mp else 1) * (2 * sender_aphrodisiac if sender_aphrodisiac else 1) * random.uniform(1, 100 * (
-        2 if target_aphrodisiac else 1))
+    duration = format((len(mp_room) if mp else 1) * (2 * sender_aphrodisiac if sender_aphrodisiac else 1) * random.uniform(1, 60 * (2 if target_aphrodisiac else 1)), '.2f')
+    V = round((len(mp_room) if mp else 1) * (2 * sender_aphrodisiac if sender_aphrodisiac else 1) * random.uniform(1, 100 * (2 if target_aphrodisiac else 1)), 2)
 
     ccnt = len(mp_room) if mp else 1
-    cvol = round(V, 2)
+    cvol = V
 
     # 更新target的记录
     for item in data:
@@ -181,33 +177,6 @@ async def cb(event: AstrMessageEvent, mp=False):
             KEY_APHRODISIAC: False,
         })
 
-    chain = [
-        Comp.Plain(
-            f"{sender_nickname}, 你和{target_nickname}发生了{duration}min长的ccb行为, 向ta注入了{V:.2f}ml的生命因子"),
-        Comp.Image.fromURL(pic),
-        Comp.Plain(f"这是ta的初体验。" if is_first else f"这是ta的第{ccnt}次。"),
-        Comp.Plain(f"" if is_first else f"ta被累积注入了{cvol}ml的生命因子。"),
-        Comp.Plain(f"ta怀孕了" if conceive and not already_conceive else "")
-    ]
-
-    if masturbation:
-        chain = [
-            Comp.Plain(f"你滋味了{duration}min, 向自己注入了{V:.2f}ml的生命因子"),
-            Comp.Image.fromURL(pic),
-            Comp.Plain(f"这是你的初体验。" if is_first else f"这是你的第{ccnt}次。"),
-            Comp.Plain(f"" if is_first else f"你被累积注入了{cvol}ml的生命因子。"),
-            Comp.Plain(f"你怀孕了" if conceive and not already_conceive else "")
-        ]
-    if mp:
-        chain = [
-            Comp.Plain(
-                f"{owner_nickname}等{len(mp_room)}人和{target_nickname}发生了{duration}min长的ccb行为, 总共向ta注入了{V:.2f}ml的生命因子"),
-            Comp.Image.fromURL(pic),
-            Comp.Plain(f"这是ta的初体验。" if is_first else f"这是ta的第{ccnt}次。"),
-            Comp.Plain(f"" if is_first else f"ta被累积注入了{cvol}ml的生命因子。"),
-            Comp.Plain(f"ta怀孕了" if conceive and not already_conceive else "")
-        ]
-
     # 更新sender的记录
     for uid in mp_room if mp else range(1):
         for item in data:
@@ -229,6 +198,32 @@ async def cb(event: AstrMessageEvent, mp=False):
                 KEY_CONCEIVE_TIME: 0.0,
                 KEY_APHRODISIAC: False
             })
+
+    chain = [
+        Comp.Plain(
+            f"{sender_nickname}, 你和{target_nickname}发生了{duration}min长的ccb行为, 向ta注入了{V:.2f}ml的生命因子"),
+        Comp.Image.fromURL(pic),
+        Comp.Plain(f"这是ta的初体验。" if is_first else f"这是ta的第{ccnt}次。"),
+        Comp.Plain(f"" if is_first else f"ta被累积注入了{cvol}ml的生命因子。"),
+        Comp.Plain(f"ta怀孕了" if conceive and not already_conceive else "")
+    ]
+
+    if masturbation:
+        chain = [
+            Comp.Plain(f"你滋味了{duration}min, 向自己注入了{V:.2f}ml的生命因子"),
+            Comp.Image.fromURL(pic),
+            Comp.Plain(f"这是你的初体验。" if is_first else f"这是你的第{ccnt}次。"),
+            Comp.Plain(f"" if is_first else f"你被累积注入了{cvol}ml的生命因子。"),
+            Comp.Plain(f"你怀孕了" if conceive and not already_conceive else "")
+        ]
+    if mp:
+        chain = [
+            Comp.Plain(f"{owner_nickname}等{len(mp_room)}人和{target_nickname}发生了{duration}min长的ccb行为, 总共向ta注入了{V:.2f}ml的生命因子"),
+            Comp.Image.fromURL(pic),
+            Comp.Plain(f"这是ta的初体验。" if is_first else f"这是ta的第{ccnt}次。"),
+            Comp.Plain(f"" if is_first else f"ta被累积注入了{cvol}ml的生命因子。"),
+            Comp.Plain(f"ta怀孕了" if conceive and not already_conceive else "")
+        ]
 
     # 写回文件
     save_data(data, event.get_group_id())
@@ -263,8 +258,7 @@ class ccb(Star):
             if not fake:
                 self_id = event.get_self_id()
                 messages = event.get_messages()
-                target_id = next(
-                    (str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), None)
+                target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), None)
                 if target_id:
                     try:
                         target_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=target_id)).get(
@@ -299,20 +293,16 @@ class ccb(Star):
             messages = event.get_messages()
             sender_id = fake_target if fake and fake_user == event.get_sender_id() else event.get_sender_id()
             self_id = event.get_self_id()
-            target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id),
-                             sender_id)
-            sender_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=sender_id)).get('nick',
-                                                                                                            sender_id)
-            target_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=target_id)).get('nick',
-                                                                                                            target_id)
+            target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), sender_id)
+            sender_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=sender_id)).get('nick', sender_id)
+            target_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=target_id)).get('nick', target_id)
             data = load_data(event.get_group_id())
             for item in data:
                 if item.get(KEY_ID) == target_id:
                     item[KEY_APHRODISIAC] = True
                     fake = False
                     save_data(data, event.get_group_id())
-                    return event.plain_result(
-                        f"{sender_nickname}对自己使用了春药" if sender_id == target_id else f"{sender_nickname}对{target_nickname}使用了春药")
+                    return event.plain_result(f"{sender_nickname}对自己用了电脑配件" if sender_id == target_id else f"{sender_nickname}对{target_nickname}用了电脑配件")
         fake = False
         return None
 
@@ -338,8 +328,7 @@ class ccb(Star):
                              sender_id)
 
             # 获取目标昵称
-            target_nickname = (await client.api.call_action('get_stranger_info', user_id=target_id)).get('nick',
-                                                                                                         target_id)
+            target_nickname = (await client.api.call_action('get_stranger_info', user_id=target_id)).get('nick', target_id)
 
             data = load_data(event.get_group_id())
 
@@ -428,7 +417,6 @@ class ccb(Star):
         global fake
         messages = event.get_messages()
         self_id = event.get_self_id()
-        sender_id = fake_target if fake and fake_user == event.get_sender_id() else event.get_sender_id()
 
         # 仅支持 aiocqhttp 平台
         if event.get_platform_name() == "aiocqhttp":
@@ -436,53 +424,33 @@ class ccb(Star):
             assert isinstance(event, AiocqhttpMessageEvent)
             pre_check(event)
             client = event.bot
+            sender_id = fake_target if fake and fake_user == event.get_sender_id() else event.get_sender_id()
             # 从 @ 中取目标
-            target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id),
-                             sender_id)
+            target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), sender_id)
 
             # 获取目标昵称
-            first_nickname = ""
-            conceive_nickname = ""
-            target_nickname = (await client.api.call_action('get_stranger_info', user_id=target_id)).get('nick',
-                                                                                                         target_id)
+            target_nickname = (await client.api.call_action('get_stranger_info', user_id=target_id)).get('nick', target_id)
 
             data = load_data(event.get_group_id())
 
             for item in data:
                 if item.get(KEY_ID) == target_id:
-                    first_id = item.get(KEY_FIRST, "")
-                    count = item.get(KEY_COUNT, 0)
-                    vol = item.get(KEY_VOL, 0.0)
-                    num = item.get(KEY_NUM, 0)
-                    conceive = item.get(KEY_CONCEIVE, "")
-                    conceive_count = item.get(KEY_CONCEIVE_COUNT, 0)
-                    aphrodisiac = item.get(KEY_APHRODISIAC, False)
-                    condom = item.get(KEY_CONDOM, 0.0)
-                    break
+                    # 计算剩余避孕时间
+                    mins, secs = divmod(int(item.get(KEY_CONDOM, 0.0) + safe_time - time.time()), 60)
+                    hours, mins = divmod(mins, 60)
+                    msg = [f"{target_nickname}的状态：", f"ccb了{item.get(KEY_NUM, 0)}次" if item.get(KEY_NUM, 0) else "还没有ccb过别人",
+                           f"被灌注了{item.get(KEY_COUNT, 0)}次，{item.get(KEY_VOL, 0.0)}ml" if item.get(KEY_COUNT, 0) else '',
+                           f"ta的第一次给了{(await client.api.call_action('get_stranger_info', user_id=item.get(KEY_FIRST, ''))).get('nick', item.get(KEY_FIRST, ''))}" if item.get(KEY_FIRST, '') else "ta还是纯洁的",
+                           f"怀孕了{item.get(KEY_CONCEIVE_COUNT, 0)}次" if item.get(KEY_CONCEIVE_COUNT, 0) else "还没有怀孕过",
+                           f"正在孕育ta和{(await client.api.call_action('get_stranger_info', user_id=item.get(KEY_CONCEIVE, ''))).get('nick', item.get(KEY_CONCEIVE, ''))}的生命精华" if item.get(KEY_CONCEIVE, '') else "当前没有身孕",
+                           "正在发情期" if item.get(KEY_APHRODISIAC, False) else '',
+                           "没有避孕保护" if item.get(KEY_CONDOM, 0.0) + safe_time < time.time() else f"安全套剩余时间：{hours}h{mins}m{secs}s"]
+                    fake = False
+                    return event.plain_result("\n".join(msg))
             else:
                 # 没找到记录，说明没有被 ccb 过
                 fake = False
                 return event.plain_result(f"{target_nickname}还是纯洁的哦~")
-
-            if first_id: first_nickname = (await client.api.call_action('get_stranger_info', user_id=first_id)).get(
-                'nick', first_id)
-            if conceive: conceive_nickname = (await client.api.call_action('get_stranger_info', user_id=conceive)).get(
-                'nick', conceive)
-
-            # 计算剩余避孕时间
-            remaining = int(condom + safe_time - time.time())
-            mins, secs = divmod(remaining, 60)
-            hours, mins = divmod(mins, 60)
-
-            msg = [f"{target_nickname}的状态：", f"ccb了{num}次" if num else "还没有ccb过别人",
-                   f"被灌注了{count}次，{vol}ml" if count else "",
-                   f"ta的第一次给了{first_nickname}" if first_id else "ta还是纯洁的",
-                   f"怀孕了{conceive_count}次" if conceive_count else "还没有怀孕过",
-                   f"正在孕育ta和{conceive_nickname}的生命精华" if conceive else "当前没有身孕",
-                   "正在发情期" if aphrodisiac else "",
-                   "没有避孕保护" if condom + safe_time < time.time() else f"安全套剩余时间：{hours}h{mins}m{secs}s"]
-            fake = False
-            return event.plain_result("\n".join(msg))
         return None
 
     @filter.command("condom")
@@ -491,29 +459,18 @@ class ccb(Star):
         if event.get_platform_name() == "aiocqhttp":
             pre_check(event)
             sender_id = fake_target if fake and fake_user == event.get_sender_id() else event.get_sender_id()
-            sender_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=sender_id)).get('nick',
-                                                                                                            sender_id)
-            condom = 0
+            sender_nickname = (await event.bot.api.call_action('get_stranger_info', user_id=sender_id)).get('nick', sender_id)
             data = load_data(event.get_group_id())
             for item in data:
                 if item.get(KEY_ID) == sender_id:
                     condom = item.get(KEY_CONDOM, 0.0)
-                    break
-
-            if condom + 7200 <= time.time():
-                for item in data:
-                    if item.get(KEY_ID) == sender_id:
+                    if condom + 7200 <= time.time():
                         item[KEY_CONDOM] = round(time.time(), 2)
-                        yield event.plain_result(
-                            f"{sender_nickname}使用了安全套, 接下来120分钟内不会怀孕, 再次使用可以摘下")
-                        break
-
-            else:
-                for item in data:
-                    if item.get(KEY_ID) == sender_id:
+                        yield event.plain_result(f"{sender_nickname}使用了安全套, 接下来120分钟内不会怀孕, 再次使用可以摘下")
+                    else:
                         item[KEY_CONDOM] = 0.0
                         yield event.plain_result(f"{sender_nickname}摘下了安全套")
-                        break
+                    break
 
             save_data(data, event.get_group_id())
 
@@ -561,14 +518,10 @@ class ccb(Star):
                 if mp_created:
                     if sender_id not in mp_room:
                         mp_room.append(sender_id)
-                        target_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_target)).get(
-                            'nick', mp_target)
-                        sender_nickname = (await client.api.call_action('get_stranger_info', user_id=sender_id)).get(
-                            'nick', sender_id)
-                        owner_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_owner)).get(
-                            'nick', mp_owner)
-                        yield event.plain_result(
-                            f"{sender_nickname}加入了房间，房主是{owner_nickname}，目标是{target_nickname}")
+                        target_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_target)).get('nick', mp_target)
+                        sender_nickname = (await client.api.call_action('get_stranger_info', user_id=sender_id)).get('nick', sender_id)
+                        owner_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_owner)).get('nick', mp_owner)
+                        yield event.plain_result(f"{sender_nickname}加入了房间，房主是{owner_nickname}，目标是{target_nickname}")
                     else:
                         yield event.plain_result("你已经在房间里了")
                 else:
@@ -597,12 +550,9 @@ class ccb(Star):
                     tasks = [event.bot.api.call_action('get_stranger_info', user_id=u) for u in mp_room]
                     infos = await asyncio.gather(*tasks)
                     names = [info.get('nick', u) for info, u in zip(infos, mp_room)]
-                    owner_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_owner)).get('nick',
-                                                                                                               mp_owner)
-                    target_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_target)).get('nick',
-                                                                                                                 mp_target)
-                    yield event.plain_result(
-                        f"房主：{owner_nickname}\n目标：{target_nickname}\n房间成员：{', '.join(names)} (共 {len(mp_room)} 人)")
+                    owner_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_owner)).get('nick', mp_owner)
+                    target_nickname = (await client.api.call_action('get_stranger_info', user_id=mp_target)).get('nick', mp_target)
+                    yield event.plain_result(f"房主：{owner_nickname}\n目标：{target_nickname}\n房间成员：{', '.join(names)} (共 {len(mp_room)} 人)")
                 else:
                     yield event.plain_result("还没有房间呢，使用/mp create @目标 创建一个")
 
