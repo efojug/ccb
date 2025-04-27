@@ -201,27 +201,27 @@ async def cb(event: AstrMessageEvent, mp=False):
 
     chain = [
         Comp.Plain(
-            f"{sender_nickname}, 你和{target_nickname}发生了{duration}min长的ccb行为, 向ta注入了{V:.2f}ml的生命因子"),
+            f"{sender_nickname}, 你和{target_nickname}发生了{duration}min长的ccb行为, ta被灌注了{V:.2f}ml的生命因子"),
         Comp.Image.fromURL(pic),
         Comp.Plain(f"这是ta的初体验。" if is_first else f"这是ta的第{ccnt}次。"),
-        Comp.Plain(f"" if is_first else f"ta被累积注入了{cvol}ml的生命因子。"),
+        Comp.Plain(f"" if is_first else f"ta被累积灌注了{cvol}ml的生命因子。"),
         Comp.Plain(f"ta怀孕了" if conceive and not already_conceive else "")
     ]
 
     if masturbation:
         chain = [
-            Comp.Plain(f"你滋味了{duration}min, 向自己注入了{V:.2f}ml的生命因子"),
+            Comp.Plain(f"你滋味了{duration}min, 给自己灌注了{V:.2f}ml的生命因子"),
             Comp.Image.fromURL(pic),
             Comp.Plain(f"这是你的初体验。" if is_first else f"这是你的第{ccnt}次。"),
-            Comp.Plain(f"" if is_first else f"你被累积注入了{cvol}ml的生命因子。"),
+            Comp.Plain(f"" if is_first else f"你被累积灌注了{cvol}ml的生命因子。"),
             Comp.Plain(f"你怀孕了" if conceive and not already_conceive else "")
         ]
     if mp:
         chain = [
-            Comp.Plain(f"{owner_nickname}等{len(mp_room)}人和{target_nickname}发生了{duration}min长的ccb行为, 总共向ta注入了{V:.2f}ml的生命因子"),
+            Comp.Plain(f"{owner_nickname}等{len(mp_room)}人和{target_nickname}发生了{duration}min长的ccb行为, ta被灌注了总共{V:.2f}ml的生命因子"),
             Comp.Image.fromURL(pic),
             Comp.Plain(f"这是ta的初体验。" if is_first else f"这是ta的第{ccnt}次。"),
-            Comp.Plain(f"" if is_first else f"ta被累积注入了{cvol}ml的生命因子。"),
+            Comp.Plain(f"" if is_first else f"ta被累积灌注了{cvol}ml的生命因子。"),
             Comp.Plain(f"ta怀孕了" if conceive and not already_conceive else "")
         ]
 
