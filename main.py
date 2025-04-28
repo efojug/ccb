@@ -201,7 +201,7 @@ async def cb(event: AstrMessageEvent, mp=False):
 
     chain = [
         Comp.Plain(
-            f"{sender_nickname}, 你和{target_nickname}发生了{duration}min长的ccb行为, ta被灌注了{V:.2f}ml的生命因子"),
+            f"{sender_nickname}，你和{target_nickname}ccb了{duration}min, 向ta灌注了{V:.2f}ml的生命因子"),
         Comp.Image.fromURL(pic),
         Comp.Plain(f"这是ta的初体验。" if is_first else f"这是ta的第{ccnt}次。"),
         Comp.Plain(f"" if is_first else f"ta被累积灌注了{cvol}ml的生命因子。"),
@@ -218,7 +218,7 @@ async def cb(event: AstrMessageEvent, mp=False):
         ]
     if mp:
         chain = [
-            Comp.Plain(f"{owner_nickname}等{len(mp_room)}人和{target_nickname}发生了{duration}min长的ccb行为, ta被灌注了总共{V:.2f}ml的生命因子"),
+            Comp.Plain(f"{owner_nickname}等{len(mp_room)}人和{target_nickname}ccb了{duration}min 向ta被灌注了总共{V:.2f}ml的生命因子"),
             Comp.Image.fromURL(pic),
             Comp.Plain(f"这是ta的初体验。" if is_first else f"这是ta的第{ccnt}次。"),
             Comp.Plain(f"" if is_first else f"ta被累积灌注了{cvol}ml的生命因子。"),
@@ -302,7 +302,7 @@ class ccb(Star):
                     item[KEY_APHRODISIAC] = True
                     fake = False
                     save_data(data, event.get_group_id())
-                    return event.plain_result(f"{sender_nickname}对自己用了电脑配件" if sender_id == target_id else f"{sender_nickname}对{target_nickname}用了电脑配件")
+                    return event.plain_result(f"{sender_nickname}自己用了春药" if sender_id == target_id else f"{sender_nickname}对{target_nickname}用了春药")
         fake = False
         return None
 
