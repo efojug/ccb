@@ -503,12 +503,9 @@ class ccb(Star):
                     mp_owner = sender_id
                     mp_target = target_id
                     mp_room.append(sender_id)
-                    target_nickname = (await client.api.call_action('get_stranger_info', user_id=target_id)).get('nick',
-                                                                                                                 target_id)
-                    sender_nickname = (await client.api.call_action('get_stranger_info', user_id=sender_id)).get('nick',
-                                                                                                                 sender_id)
-                    yield event.plain_result(
-                        f"成功创建房间，房主是{sender_nickname}，目标是{target_nickname}\n使用/mp join加入房间")
+                    target_nickname = (await client.api.call_action('get_stranger_info', user_id=target_id)).get('nick', target_id)
+                    sender_nickname = (await client.api.call_action('get_stranger_info', user_id=sender_id)).get('nick', sender_id)
+                    yield event.plain_result(f"成功创建房间，房主是{sender_nickname}，目标是{target_nickname}\n使用/mp join加入房间")
                 else:
                     yield event.plain_result("已经有一个房间了")
 
