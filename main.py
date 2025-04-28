@@ -324,8 +324,7 @@ class ccb(Star):
             pre_check(event)
             client = event.bot
             # 从 @ 中取目标
-            target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id),
-                             sender_id)
+            target_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At) and str(seg.qq) != self_id), sender_id)
 
             # 获取目标昵称
             target_nickname = (await client.api.call_action('get_stranger_info', user_id=target_id)).get('nick', target_id)
