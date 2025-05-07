@@ -153,6 +153,8 @@ async def cb(event: AstrMessageEvent, mp=False):
     # 更新target的记录
     for item in data:
         if item.get(KEY_ID) == (mp_target if mp else target_id):
+            if is_first:
+                item[KEY_FIRST] = sender_id
             item[KEY_COUNT] = item.get(KEY_COUNT, 0) + (len(mp_room) if mp else 1)
             item[KEY_VOL] = round(item.get(KEY_VOL, 0.0) + V, 2)
             item[KEY_CONCEIVE] = conceive
@@ -218,7 +220,7 @@ async def cb(event: AstrMessageEvent, mp=False):
         ]
     if mp:
         chain = [
-            Comp.Plain(f"{owner_nickname}等{len(mp_room)}人和{target_nickname} ccb了{duration}min 向ta被灌注了总共{V:.2f}ml的生命因子"),
+            Comp.Plain(f"{owner_nickname}等{len(mp_room)}和{target_nickname} ccb了{duration}min 向ta被灌注了总共{V:.2f}ml的生命因子"),
             Comp.Image.fromURL(pic),
             Comp.Plain(f"这是ta的初体验。" if is_first else f"这是ta的第{ccnt}次。"),
             Comp.Plain(f"" if is_first else f"ta被累积灌注了{cvol}ml的生命因子。"),
